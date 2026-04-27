@@ -6,22 +6,22 @@
 #include <cstdint>
 
 namespace startorch {
-void *makeMemory(uint64_t size, const startorch::Device &device);
-void freeMemory(void *pointer, const startorch::Device &device);
-void copyMemory(void *destination, void *source, uint64_t size,
-                const startorch::DevicePair &device_pair);
+void *makeData(uint64_t size, const Device &device);
+void freeData(void *pointer, const Device &device);
+void copyData(void *destination, void *source, uint64_t size,
+                const DevicePair &device_pair);
 
 class Storage {
 private:
   void *data_ = nullptr;
   uint64_t size_ = 0;
-  startorch::ScalarType scalar_type_ = startorch::ScalarType::UNSIGNED_INT_8;
-  startorch::Device device_ = startorch::Device();
+  ScalarType scalar_type_ = ScalarType::UNSIGNED_INT_8;
+  Device device_ = Device();
 
 public:
   Storage() = default;
-  Storage(uint64_t size, startorch::ScalarType scalar_type,
-          const startorch::Device &device);
+  Storage(uint64_t size, ScalarType scalar_type,
+          const Device &device);
 
   Storage(const Storage &other);
   Storage(Storage &&other) noexcept;
@@ -33,10 +33,9 @@ public:
 
   void *getData() const;
   uint64_t getSize() const;
-  startorch::ScalarType getScalarType() const;
-  const startorch::Device &getDevice() const;
-};
+  ScalarType getScalarType() const;
+  const Device &getDevice() const;
 
-uint64_t getScalarSize(startorch::ScalarType scalar_type);
-uint64_t getStorageSize(const Storage &buffer);
+  void setDevice(const Device &device);
+};
 } // namespace darkside

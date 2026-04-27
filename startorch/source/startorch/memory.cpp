@@ -1,6 +1,7 @@
 #include "startorch/memory.hpp"
 #include "startorch/common.hpp"
 #include "startorch/device.hpp"
+#include "startorch/format.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -9,7 +10,7 @@
 #include <cuda_runtime.h>
 
 namespace startorch {
-void *makeMemory(uint64_t size, const Device &device) {
+void *makeData(uint64_t size, const Device &device) {
   void *pointer = nullptr;
 
   if (device.getMemoryType() == MemoryType::PINNED) {
@@ -41,7 +42,7 @@ void *makeMemory(uint64_t size, const Device &device) {
   return pointer;
 }
 
-void freeMemory(void *pointer, const Device &device) {
+void freeData(void *pointer, const Device &device) {
   if (pointer == nullptr)
     return;
 
@@ -69,8 +70,8 @@ void freeMemory(void *pointer, const Device &device) {
   }
 }
 
-void copyMemory(void *destination, void *source, uint64_t size,
-                const DevicePair &device_pair) {
+void copyData(void *destination, void *source, uint64_t size,
+              const DevicePair &device_pair) {
   if (destination == nullptr || source == nullptr || size == 0)
     return;
 
@@ -85,31 +86,31 @@ void copyMemory(void *destination, void *source, uint64_t size,
 }
 
 Storage::Storage(uint64_t size, ScalarType scalar_type, const Device &device)
-    : data_(nullptr), size_(size), scalar_type_(scalar_type), device_(device) {
+    : size_(size), scalar_type_(scalar_type), device_(device) {
   if (size_ == 0)
     return;
 
-  data_ = makeMemory(size_ * getScalarSize(scalar_type_), device_);
+  data_ = makeData(size_ * getScalarTypeSize(scalar_type_), device_);
 
   if (data_ == nullptr)
     size_ = 0;
 }
 
 Storage::Storage(const Storage &other)
-    : data_(nullptr), size_(other.size_), scalar_type_(other.scalar_type_),
+    : size_(other.size_), scalar_type_(other.scalar_type_),
       device_(other.device_) {
   if (size_ == 0)
     return;
 
-  data_ = makeMemory(size_ * getScalarSize(scalar_type_), device_);
+  data_ = makeData(size_ * getScalarTypeSize(scalar_type_), device_);
 
   if (data_ == nullptr) {
     size_ = 0;
     return;
   }
 
-  copyMemory(data_, other.data_, size_ * getScalarSize(scalar_type_),
-             DevicePair(device_, other.device_));
+  copyData(data_, other.data_, size_ * getScalarTypeSize(scalar_type_),
+           DevicePair(device_, other.device_));
 }
 
 Storage::Storage(Storage &&other) noexcept
@@ -120,9 +121,8 @@ Storage::Storage(Storage &&other) noexcept
 }
 
 Storage::~Storage() {
-  if (data_ != nullptr) {
-    freeMemory(data_, device_);
-  }
+  if (data_ != nullptr)
+    freeData(data_, device_);
 }
 
 Storage &Storage::operator=(const Storage &other) {
@@ -131,7 +131,7 @@ Storage &Storage::operator=(const Storage &other) {
 
   if (other.size_ == 0) {
     if (size_ != 0)
-      freeMemory(data_, device_);
+      freeData(data_, device_);
 
     data_ = nullptr;
     size_ = 0;
@@ -141,21 +141,21 @@ Storage &Storage::operator=(const Storage &other) {
     return *this;
   }
 
-  uint64_t bytes = other.size_ * getScalarSize(other.scalar_type_);
-  void *new_data = makeMemory(bytes, other.device_);
+  uint64_t bytes = other.size_ * getScalarTypeSize(other.scalar_type_);
+  void *new_data = makeData(bytes, other.device_);
 
   if (new_data == nullptr)
     return *this;
 
   if (size_ != 0)
-    freeMemory(data_, device_);
+    freeData(data_, device_);
 
   data_ = new_data;
   size_ = other.size_;
   scalar_type_ = other.scalar_type_;
   device_ = other.device_;
 
-  copyMemory(data_, other.data_, bytes, DevicePair(device_, other.device_));
+  copyData(data_, other.data_, bytes, DevicePair(device_, other.device_));
 
   return *this;
 }
@@ -165,7 +165,7 @@ Storage &Storage::operator=(Storage &&other) noexcept {
     return *this;
 
   if (size_ != 0)
-    freeMemory(data_, device_);
+    freeData(data_, device_);
 
   data_ = other.data_;
   size_ = other.size_;
@@ -183,35 +183,24 @@ uint64_t Storage::getSize() const { return size_; }
 ScalarType Storage::getScalarType() const { return scalar_type_; }
 const Device &Storage::getDevice() const { return device_; }
 
-uint64_t getScalarSize(startorch::ScalarType scalar_type) {
-  switch (scalar_type) {
-  case ScalarType::INT_8:
-  case ScalarType::UNSIGNED_INT_8:
-    return 1;
-
-  case ScalarType::INT_16:
-  case ScalarType::UNSIGNED_INT_16:
-    return 2;
-
-  case ScalarType::INT_32:
-  case ScalarType::UNSIGNED_INT_32:
-    return 4;
-
-  case ScalarType::INT_64:
-  case ScalarType::UNSIGNED_INT_64:
-    return 8;
-
-  case ScalarType::FLOAT_32:
-    return sizeof(float);
-
-  case ScalarType::FLOAT_64:
-    return sizeof(double);
-
-  default:
-    return 0;
+void Storage::setDevice(const Device &device) {
+  if (device == device_ || size_ == 0) {
+    device_ = device;
+    return;
   }
-}
-uint64_t getStorageSize(const Storage &storage) {
-  return storage.getSize() * getScalarSize(storage.getScalarType());
+
+  uint64_t bytes = size_ * getScalarTypeSize(scalar_type_);
+  void *new_data = makeData(bytes, device);
+
+  if (new_data == nullptr)
+    return;
+
+  copyData(new_data, data_, bytes, DevicePair(device_, device));
+
+  if (data_ != nullptr)
+    freeData(data_, device_);
+
+  data_ = new_data;
+  device_ = device;
 }
 } // namespace startorch
