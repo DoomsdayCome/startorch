@@ -4,5 +4,8 @@
 
 namespace darkside {
 inline constexpr uint64_t THREADS = 256;
-#define BLOCKS(size) (((size) + THREADS - 1) / THREADS)
+
+inline constexpr uint64_t BLOCKS(uint64_t size) {
+  return (size + THREADS - 1) / THREADS;
+}
 }
