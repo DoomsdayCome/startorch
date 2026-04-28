@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED YES)
 
+set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES OFF)
+
 find_package(CUDAToolkit REQUIRED)
 
 add_library(startorch SHARED)
@@ -24,6 +26,9 @@ target_sources(startorch
     "source/startorch/device.cpp"
     "source/startorch/memory.cpp"
     "source/startorch/random.cpp"
+    "source/startorch/format.cpp"
+
+    "source/darkside/assign.cu"
 )
 
 target_include_directories(startorch
