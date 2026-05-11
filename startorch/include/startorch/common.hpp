@@ -70,4 +70,13 @@ enum class OrderType : uint8_t {
 
 inline constexpr OrderType ROW_MAJOR = OrderType::ROW_MAJOR;
 inline constexpr OrderType COLUMN_MAJOR = OrderType::COLUMN_MAJOR;
+
+enum class LoggerType : uint8_t {
+  DEBUG = 0,
+  INFO = 1,
+  WARN = 2,
+  ERROR = 3,
+};
+
+
 } // namespace startorch

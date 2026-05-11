@@ -9,10 +9,15 @@ namespace darkside {
 template <typename T>
 void fillData(void *data, uint64_t size, T value, startorch::Arena *arena);
 template <typename T>
-void fillIncreaseData(void *data, uint64_t size, startorch::Arena *arena);
+void fillIncreasedData(void *data, uint64_t size, T start, T step,
+                      startorch::Arena *arena);
 template <typename T>
-void fillDecreaseData(void *data, uint64_t size, startorch::Arena *arena);
+void fillDecreasedData(void *data, uint64_t size, T start, T step,
+                      startorch::Arena *arena);
 template <typename T>
-void fillOrderedData(void *data, uint64_t size, startorch::OrderType order_type,
-                     startorch::Arena *arena);
+void fillOrderedData(void *data, uint64_t size, T start, T step,
+                     startorch::OrderType order_type, startorch::Arena *arena);
+template <typename T>
+void fillStrides(void *strides, void *shape, void *order, uint64_t size,
+                 startorch::Arena *arena);
 } // namespace darkside

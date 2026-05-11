@@ -26,31 +26,60 @@ template <typename T> void fillDataCPU(T *data, uint64_t size, T value) {
 }
 
 template <typename T>
-__global__ void fillIncreaseDataGPU(T *data, uint64_t size) {
+__global__ void fillIncreasedDataGPU(T *data, uint64_t size, T start, T step) {
   uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < size)
-    data[idx] = (T)idx;
-}
-
-template <typename T> void fillIncreaseDataCPU(T *data, uint64_t size) {
-  if (size == 0 || data == nullptr)
-    return;
-  for (uint64_t i = 0; i < size; i++)
-    data[i] = (T)i;
+    data[idx] = start + (static_cast<T>(idx) * step);
 }
 
 template <typename T>
-__global__ void fillDecreaseDataGPU(T *data, uint64_t size) {
-  uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < size)
-    data[idx] = (T)(size - 1 - idx);
-}
-
-template <typename T> void fillDecreaseDataCPU(T *data, uint64_t size) {
+void fillIncreasedDataCPU(T *data, uint64_t size, T start, T step) {
   if (size == 0 || data == nullptr)
     return;
   for (uint64_t i = 0; i < size; i++)
-    data[i] = (T)(size - 1 - i);
+    data[i] = start + (static_cast<T>(i) * step);
+}
+
+template <typename T>
+__global__ void fillDecreasedDataGPU(T *data, uint64_t size, T start, T step) {
+  uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx < size)
+    data[idx] = start + (static_cast<T>(size - 1 - idx) * step);
+}
+
+template <typename T>
+void fillDecreasedDataCPU(T *data, uint64_t size, T start, T step) {
+  if (size == 0 || data == nullptr)
+    return;
+  for (uint64_t i = 0; i < size; i++)
+    data[i] = start + (static_cast<T>(size - 1 - i) * step);
+}
+
+template <typename T>
+__global__ void fillStridesGPU(T *strides, T *shape, T *order, uint64_t size) {
+  uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx == 0) {
+    if (size == 0)
+      return;
+    T current_stride = 1;
+    strides[static_cast<uint64_t>(order[size - 1])] = current_stride;
+    for (uint64_t i = size - 1; i > 0; --i) {
+      current_stride *= shape[static_cast<uint64_t>(order[i])];
+      strides[static_cast<uint64_t>(order[i - 1])] = current_stride;
+    }
+  }
+}
+
+template <typename T>
+void fillStridesCPU(T *strides, T *shape, T *order, uint64_t size) {
+  if (size == 0)
+    return;
+  T current_stride = 1;
+  strides[static_cast<uint64_t>(order[size - 1])] = current_stride;
+  for (uint64_t i = size - 1; i > 0; --i) {
+    current_stride *= shape[static_cast<uint64_t>(order[i])];
+    strides[static_cast<uint64_t>(order[i - 1])] = current_stride;
+  }
 }
 
 template <typename T>
@@ -59,116 +88,151 @@ void fillData(void *data, uint64_t size, T value, startorch::Arena *arena) {
   case startorch::DeviceType::CPU:
     fillDataCPU<T>((T *)data, size, value);
     break;
-
   case startorch::DeviceType::GPU:
     fillDataGPU<T><<<BLOCKS(size), THREADS>>>((T *)data, size, value);
     break;
-
   default:
     break;
   }
 }
 
-template void fillData<int8_t>(void *, uint64_t, int8_t, startorch::Arena *);
-template void fillData<int16_t>(void *, uint64_t, int16_t, startorch::Arena *);
-template void fillData<int32_t>(void *, uint64_t, int32_t, startorch::Arena *);
-template void fillData<int64_t>(void *, uint64_t, int64_t, startorch::Arena *);
-template void fillData<float>(void *, uint64_t, float, startorch::Arena *);
-template void fillData<double>(void *, uint64_t, double, startorch::Arena *);
-template void fillData<uint8_t>(void *, uint64_t, uint8_t, startorch::Arena *);
-template void fillData<uint16_t>(void *, uint64_t, uint16_t,
-                                 startorch::Arena *);
-template void fillData<uint32_t>(void *, uint64_t, uint32_t,
-                                 startorch::Arena *);
-template void fillData<uint64_t>(void *, uint64_t, uint64_t,
-                                 startorch::Arena *);
+#define INSTANTIATE_FILL_DATA(T)                                               \
+  template void fillData<T>(void *, uint64_t, T, startorch::Arena *);
+
+INSTANTIATE_FILL_DATA(int8_t)
+INSTANTIATE_FILL_DATA(int16_t)
+INSTANTIATE_FILL_DATA(int32_t)
+INSTANTIATE_FILL_DATA(int64_t)
+INSTANTIATE_FILL_DATA(float)
+INSTANTIATE_FILL_DATA(double)
+INSTANTIATE_FILL_DATA(uint8_t)
+INSTANTIATE_FILL_DATA(uint16_t)
+INSTANTIATE_FILL_DATA(uint32_t)
+INSTANTIATE_FILL_DATA(uint64_t)
+
+#undef INSTANTIATE_FILL_DATA
 
 template <typename T>
-void fillIncreaseData(void *data, uint64_t size, startorch::Arena *arena) {
+void fillIncreasedData(void *data, uint64_t size, T start, T step,
+                      startorch::Arena *arena) {
   switch (arena->getDevice().getDeviceType()) {
   case startorch::DeviceType::CPU:
-    fillIncreaseDataCPU<T>((T *)data, size);
+    fillIncreasedDataCPU<T>((T *)data, size, start, step);
     break;
-
   case startorch::DeviceType::GPU:
-    fillIncreaseDataGPU<T><<<BLOCKS(size), THREADS>>>((T *)data, size);
+    fillIncreasedDataGPU<T><<<BLOCKS(size), THREADS>>>((T *)data, size, start, step);
     break;
-
   default:
     break;
   }
 }
 
-template void fillIncreaseData<int8_t>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<int16_t>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<int32_t>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<int64_t>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<float>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<double>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<uint8_t>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<uint16_t>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<uint32_t>(void *, uint64_t, startorch::Arena *);
-template void fillIncreaseData<uint64_t>(void *, uint64_t, startorch::Arena *);
+#define INSTANTIATE_INCREASE(T)                                                \
+  template void fillIncreasedData<T>(void *, uint64_t, T, T, startorch::Arena *);
+
+INSTANTIATE_INCREASE(int8_t)
+INSTANTIATE_INCREASE(int16_t)
+INSTANTIATE_INCREASE(int32_t)
+INSTANTIATE_INCREASE(int64_t)
+INSTANTIATE_INCREASE(float)
+INSTANTIATE_INCREASE(double)
+INSTANTIATE_INCREASE(uint8_t)
+INSTANTIATE_INCREASE(uint16_t)
+INSTANTIATE_INCREASE(uint32_t)
+INSTANTIATE_INCREASE(uint64_t)
+
+#undef INSTANTIATE_INCREASE
 
 template <typename T>
-void fillDecreaseData(void *data, uint64_t size, startorch::Arena *arena) {
+void fillDecreasedData(void *data, uint64_t size, T start, T step,
+                      startorch::Arena *arena) {
   switch (arena->getDevice().getDeviceType()) {
   case startorch::DeviceType::CPU:
-    fillDecreaseDataCPU<T>((T *)data, size);
+    fillDecreasedDataCPU<T>((T *)data, size, start, step);
     break;
-
   case startorch::DeviceType::GPU:
-    fillDecreaseDataGPU<T><<<BLOCKS(size), THREADS>>>((T *)data, size);
+    fillDecreasedDataGPU<T><<<BLOCKS(size), THREADS>>>((T *)data, size, start, step);
     break;
-
   default:
     break;
   }
 }
 
-template void fillDecreaseData<int8_t>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<int16_t>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<int32_t>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<int64_t>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<float>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<double>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<uint8_t>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<uint16_t>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<uint32_t>(void *, uint64_t, startorch::Arena *);
-template void fillDecreaseData<uint64_t>(void *, uint64_t, startorch::Arena *);
+#define INSTANTIATE_DECREASE(T)                                                \
+  template void fillDecreasedData<T>(void *, uint64_t, T, T, startorch::Arena *);
+
+INSTANTIATE_DECREASE(int8_t)
+INSTANTIATE_DECREASE(int16_t)
+INSTANTIATE_DECREASE(int32_t)
+INSTANTIATE_DECREASE(int64_t)
+INSTANTIATE_DECREASE(float)
+INSTANTIATE_DECREASE(double)
+INSTANTIATE_DECREASE(uint8_t)
+INSTANTIATE_DECREASE(uint16_t)
+INSTANTIATE_DECREASE(uint32_t)
+INSTANTIATE_DECREASE(uint64_t)
+
+#undef INSTANTIATE_DECREASE
 
 template <typename T>
-void fillOrderedData(void *data, uint64_t size, startorch::OrderType order_type,
-                     startorch::Arena *arena) {
+void fillOrderedData(void *data, uint64_t size, T start, T step,
+                     startorch::OrderType order_type, startorch::Arena *arena) {
   switch (order_type) {
   case startorch::OrderType::ROW_MAJOR:
-    fillIncreaseData<T>(data, size, arena);
+    fillIncreasedData<T>(data, size, start, step, arena);
     break;
   case startorch::OrderType::COLUMN_MAJOR:
-    fillDecreaseData<T>(data, size, arena);
+    fillDecreasedData<T>(data, size, start, step, arena);
     break;
   }
 }
 
-template void fillOrderedData<int8_t>(void *, uint64_t, startorch::OrderType,
-                                      startorch::Arena *);
-template void fillOrderedData<int16_t>(void *, uint64_t, startorch::OrderType,
-                                       startorch::Arena *);
-template void fillOrderedData<int32_t>(void *, uint64_t, startorch::OrderType,
-                                       startorch::Arena *);
-template void fillOrderedData<int64_t>(void *, uint64_t, startorch::OrderType,
-                                       startorch::Arena *);
-template void fillOrderedData<float>(void *, uint64_t, startorch::OrderType,
-                                     startorch::Arena *);
-template void fillOrderedData<double>(void *, uint64_t, startorch::OrderType,
-                                      startorch::Arena *);
-template void fillOrderedData<uint8_t>(void *, uint64_t, startorch::OrderType,
-                                       startorch::Arena *);
-template void fillOrderedData<uint16_t>(void *, uint64_t, startorch::OrderType,
-                                        startorch::Arena *);
-template void fillOrderedData<uint32_t>(void *, uint64_t, startorch::OrderType,
-                                        startorch::Arena *);
-template void fillOrderedData<uint64_t>(void *, uint64_t, startorch::OrderType,
-                                        startorch::Arena *);
+#define INSTANTIATE_ORDERED(T)                                                 \
+  template void fillOrderedData<T>(void *, uint64_t, T, T, startorch::OrderType,  \
+                                   startorch::Arena *);
 
+INSTANTIATE_ORDERED(int8_t)
+INSTANTIATE_ORDERED(int16_t)
+INSTANTIATE_ORDERED(int32_t)
+INSTANTIATE_ORDERED(int64_t)
+INSTANTIATE_ORDERED(float)
+INSTANTIATE_ORDERED(double)
+INSTANTIATE_ORDERED(uint8_t)
+INSTANTIATE_ORDERED(uint16_t)
+INSTANTIATE_ORDERED(uint32_t)
+INSTANTIATE_ORDERED(uint64_t)
+
+#undef INSTANTIATE_ORDERED
+
+template <typename T>
+void fillStrides(void *strides, void *shape, void *order, uint64_t size,
+                 startorch::Arena *arena) {
+  switch (arena->getDevice().getDeviceType()) {
+  case startorch::DeviceType::CPU:
+    fillStridesCPU<T>((T *)strides, (T *)shape, (T *)order, size);
+    break;
+  case startorch::DeviceType::GPU:
+    fillStridesGPU<T><<<1, 1>>>((T *)strides, (T *)shape, (T *)order, size);
+    break;
+  default:
+    break;
+  }
+}
+
+#define INSTANTIATE_STRIDES(T)                                                 \
+  template void fillStrides<T>(void *, void *, void *, uint64_t,               \
+                               startorch::Arena *);
+
+INSTANTIATE_STRIDES(int8_t)
+INSTANTIATE_STRIDES(int16_t)
+INSTANTIATE_STRIDES(int32_t)
+INSTANTIATE_STRIDES(int64_t)
+INSTANTIATE_STRIDES(uint8_t)
+INSTANTIATE_STRIDES(uint16_t)
+INSTANTIATE_STRIDES(uint32_t)
+INSTANTIATE_STRIDES(uint64_t)
+INSTANTIATE_STRIDES(float)
+INSTANTIATE_STRIDES(double)
+
+#undef INSTANTIATE_STRIDES
 } // namespace darkside

@@ -27,7 +27,7 @@ public:
   Arena &operator=(const Arena &other) = delete;
   Arena &operator=(Arena &&other) noexcept = delete;
 
-  const void *getData() const;
+  void *getData() const;
   uint64_t getSize() const;
   uint64_t getOffset() const;
   MemoryType getMemoryType() const;
@@ -38,7 +38,7 @@ public:
   void wipeData();
 
   static void copyData(void *destination, const void *source, uint64_t size,
-                         const DevicePair &device_pair);
+                       const DevicePair &device_pair);
 };
 
 class Storage {
@@ -60,16 +60,21 @@ public:
   Storage &operator=(const Storage &other);
   Storage &operator=(Storage &&other) noexcept;
 
-  const void *getData() const;
+  void *getData() const;
   uint64_t getSize() const;
   ScalarType getScalarType() const;
   Arena *getArena() const;
 
   void setArena(Arena *arena);
+  void setScalarType(ScalarType scalar_type);
 
   void fillData(const darkside::ScalarValueToCPP &value);
-  void fillIncreaseData();
-  void fillDecreaseData();
-  void fillOrderData(OrderType order_type);
+  void fillIncreasedData(const darkside::ScalarValueToCPP &start,
+                         const darkside::ScalarValueToCPP &step);
+  void fillDecreasedData(const darkside::ScalarValueToCPP &start,
+                         const darkside::ScalarValueToCPP &step);
+  void fillOrderData(const darkside::ScalarValueToCPP &start,
+                     const darkside::ScalarValueToCPP &step,
+                     OrderType order_type);
 };
 } // namespace startorch

@@ -23,11 +23,12 @@ set_target_properties(startorch PROPERTIES
 
 target_sources(startorch
   PRIVATE
-    "source/startorch/device.cpp"
-    "source/startorch/memory.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/device.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/memory.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/layout.cpp"
     # "source/startorch/random.cpp"
     #
-    # "source/darkside/assign.cu"
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/darkside/assign.cu"
     # "source/darkside/memory.cu"
     # "source/darkside/format.cpp"
 )

@@ -5,7 +5,7 @@ namespace startorch {
 Device::Device(DeviceType device_type) : device_type_(device_type) {}
 
 bool Device::operator==(const Device &other) const {
-  return device_type_ == other.device_type_; 
+  return device_type_ == other.device_type_;
 }
 
 bool Device::operator!=(const Device &other) const { return !(*this == other); }
@@ -25,5 +25,4 @@ bool DevicePair::operator!=(const DevicePair &other) const {
 
 const Device &DevicePair::getFirstDevice() const { return first_device_; }
 const Device &DevicePair::getSecondDevice() const { return second_device_; }
-
 } // namespace startorch

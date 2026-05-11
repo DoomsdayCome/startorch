@@ -15,7 +15,7 @@
 
 namespace startorch {
 
-const void *Arena::getData() const { return data_; }
+void *Arena::getData() const { return data_; }
 uint64_t Arena::getSize() const { return size_; }
 uint64_t Arena::getOffset() const { return offset_; }
 MemoryType Arena::getMemoryType() const { return memory_type_; }
@@ -233,7 +233,7 @@ Storage &Storage::operator=(Storage &&other) noexcept {
   return *this;
 }
 
-const void *Storage::getData() const { return data_; }
+void *Storage::getData() const { return data_; }
 uint64_t Storage::getSize() const { return size_; }
 ScalarType Storage::getScalarType() const { return scalar_type_; };
 Arena *Storage::getArena() const { return arena_; }
@@ -265,106 +265,99 @@ void Storage::setArena(Arena *arena) {
   arena_ = arena;
 }
 
+#define STORAGE_DISPATCH(SCALAR_TYPE, ACTION)                                  \
+  case ScalarType::INT_8: {                                                    \
+    using T = int8_t;                                                          \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::INT_16: {                                                   \
+    using T = int16_t;                                                         \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::INT_32: {                                                   \
+    using T = int32_t;                                                         \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::INT_64: {                                                   \
+    using T = int64_t;                                                         \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::FLOAT_32: {                                                 \
+    using T = float;                                                           \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::FLOAT_64: {                                                 \
+    using T = double;                                                          \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::UNSIGNED_INT_8: {                                           \
+    using T = uint8_t;                                                         \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::UNSIGNED_INT_16: {                                          \
+    using T = uint16_t;                                                        \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::UNSIGNED_INT_32: {                                          \
+    using T = uint32_t;                                                        \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }                                                                            \
+  case ScalarType::UNSIGNED_INT_64: {                                          \
+    using T = uint64_t;                                                        \
+    ACTION;                                                                    \
+    break;                                                                     \
+  }
+
 void Storage::fillData(const darkside::ScalarValueToCPP &value) {
   switch (scalar_type_) {
-#define FILL_DATA(T)                                                           \
-  darkside::fillData<T>(data_, size_, value.value<T>(), arena_)
-  case ScalarType::INT_8:
-    FILL_DATA(int8_t);
-    break;
-
-  case ScalarType::INT_16:
-    FILL_DATA(int16_t);
-    break;
-
-  case ScalarType::INT_32:
-    FILL_DATA(int32_t);
-    break;
-
-  case ScalarType::INT_64:
-    FILL_DATA(int64_t);
-    break;
-
-  case ScalarType::FLOAT_32:
-    FILL_DATA(float);
-    break;
-
-  case ScalarType::FLOAT_64:
-    FILL_DATA(double);
-    break;
-
-  case ScalarType::UNSIGNED_INT_8:
-    FILL_DATA(uint8_t);
-    break;
-
-  case ScalarType::UNSIGNED_INT_16:
-    FILL_DATA(uint16_t);
-    break;
-
-  case ScalarType::UNSIGNED_INT_32:
-    FILL_DATA(uint32_t);
-    break;
-
-  case ScalarType::UNSIGNED_INT_64:
-    FILL_DATA(uint64_t);
-    break;
-
+    STORAGE_DISPATCH(scalar_type_, darkside::fillData<T>(
+                                       data_, size_, value.value<T>(), arena_))
   default:
     break;
-
-#undef FILL_DATA
   }
 }
 
-#define STORAGE_DISPATCH(TYPE_ENUM, FUNCTION, ...)                             \
-  case ScalarType::INT_8:                                                      \
-    FUNCTION<int8_t>(__VA_ARGS__);                                             \
-    break;                                                                     \
-  case ScalarType::INT_16:                                                     \
-    FUNCTION<int16_t>(__VA_ARGS__);                                            \
-    break;                                                                     \
-  case ScalarType::INT_32:                                                     \
-    FUNCTION<int32_t>(__VA_ARGS__);                                            \
-    break;                                                                     \
-  case ScalarType::INT_64:                                                     \
-    FUNCTION<int64_t>(__VA_ARGS__);                                            \
-    break;                                                                     \
-  case ScalarType::FLOAT_32:                                                   \
-    FUNCTION<float>(__VA_ARGS__);                                              \
-    break;                                                                     \
-  case ScalarType::FLOAT_64:                                                   \
-    FUNCTION<double>(__VA_ARGS__);                                             \
-    break;                                                                     \
-  case ScalarType::UNSIGNED_INT_8:                                             \
-    FUNCTION<uint8_t>(__VA_ARGS__);                                            \
-    break;                                                                     \
-  case ScalarType::UNSIGNED_INT_16:                                            \
-    FUNCTION<uint16_t>(__VA_ARGS__);                                           \
-    break;                                                                     \
-  case ScalarType::UNSIGNED_INT_32:                                            \
-    FUNCTION<uint32_t>(__VA_ARGS__);                                           \
-    break;                                                                     \
-  case ScalarType::UNSIGNED_INT_64:                                            \
-    FUNCTION<uint64_t>(__VA_ARGS__);                                           \
-    break;
-
-void Storage::fillIncreaseData() {
+void Storage::fillIncreasedData(const darkside::ScalarValueToCPP &start,
+                                const darkside::ScalarValueToCPP &step) {
   switch (scalar_type_) {
-    STORAGE_DISPATCH(scalar_type_, darkside::fillIncreaseData, data_, size_,
-                     arena_)
+    STORAGE_DISPATCH(scalar_type_, darkside::fillIncreasedData<T>(
+                                       data_, size_, start.value<T>(),
+                                       step.value<T>(), arena_))
   default:
     break;
   }
 }
 
-void Storage::fillDecreaseData() {
+void Storage::fillDecreasedData(const darkside::ScalarValueToCPP &start,
+                                const darkside::ScalarValueToCPP &step) {
   switch (scalar_type_) {
-    STORAGE_DISPATCH(scalar_type_, darkside::fillDecreaseData, data_, size_,
-                     arena_)
+    STORAGE_DISPATCH(scalar_type_, darkside::fillDecreasedData<T>(
+                                       data_, size_, start.value<T>(),
+                                       step.value<T>(), arena_))
   default:
     break;
   }
 }
 
+void Storage::fillOrderData(const darkside::ScalarValueToCPP &start,
+                            const darkside::ScalarValueToCPP &step,
+                            OrderType order_type) {
+  switch (scalar_type_) {
+    STORAGE_DISPATCH(scalar_type_,
+                     darkside::fillOrderedData<T>(
+                         data_, size_, start.value<T>(), step.value<int>(), order_type, arena_))
+  default:
+    break;
+  }
+}
 #undef STORAGE_DISPATCH
 } // namespace startorch
