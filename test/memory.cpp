@@ -2,272 +2,99 @@
 #include <startorch/device.hpp>
 #include <startorch/memory.hpp>
 
-#include <darkside/memory.hpp>
-
 #include <gtest/gtest.h>
 
 namespace startorch {
+TEST(ArenaTest, DefaultConstructorTest) {
+  Arena a0;
 
-TEST(DataTest, CopyCPUtoGPUtoCPUTest) {
-  int size = 10;
-
-  Device cpu(CPU, DEFAULT);
-  Device gpu(GPU, DEFAULT);
-
-  DevicePair p0(cpu, gpu);
-  DevicePair p1(gpu, cpu);
-
-  int *src = (int *)darkside::makeData(sizeof(int) * size, cpu);
-  int *dst = (int *)darkside::makeData(sizeof(int) * size, gpu);
-  int *res = (int *)darkside::makeData(sizeof(int) * size, cpu);
-
-  for (int i = 0; i < size; i++)
-    src[i] = i;
-
-  darkside::copyData(dst, src, sizeof(int) * size, p0);
-  darkside::copyData(res, dst, sizeof(int) * size, p1);
-
-  for (int i = 0; i < size; i++)
-    EXPECT_EQ(res[i], src[i]);
-
-  darkside::freeData(src, cpu);
-  darkside::freeData(dst, gpu);
-  darkside::freeData(res, cpu);
+  EXPECT_EQ(a0.getSize(), 0);
+  EXPECT_EQ(a0.getOffset(), 0);
 }
 
-TEST(DataTest, CopyCPUToCPUTest) {
-  int size = 10;
-  Device cpu(CPU, DEFAULT);
+TEST(ArenaTest, CustomConstructorTest) {
+  Arena a0(2_MB, HOST, CPU);
 
-  int *src = (int *)darkside::makeData(sizeof(int) * size, cpu);
-  int *dst = (int *)darkside::makeData(sizeof(int) * size, cpu);
+  EXPECT_EQ(a0.getSize(), 2_MB);
+  EXPECT_EQ(a0.getOffset(), 0);
+  EXPECT_EQ(a0.getMemoryType(), HOST);
+  EXPECT_EQ(a0.getDevice().getDeviceType(), CPU);
 
-  for (int i = 0; i < size; i++)
-    src[i] = i;
+  Arena a1(2_MB, DEVICE, GPU);
 
-  darkside::copyData(dst, src, sizeof(int) * size, DevicePair(cpu, cpu));
+  EXPECT_EQ(a1.getSize(), 2_MB);
+  EXPECT_EQ(a1.getMemoryType(), DEVICE);
+  EXPECT_EQ(a1.getDevice().getDeviceType(), GPU);
 
-  for (int i = 0; i < size; i++)
-    EXPECT_EQ(dst[i], i);
+  Arena a2(0, HOST, GPU);
 
-  darkside::freeData(src, cpu);
-  darkside::freeData(dst, cpu);
+  EXPECT_EQ(a2.getSize(), 0);
+  EXPECT_EQ(a2.getOffset(), 0);
+  EXPECT_EQ(a2.getMemoryType(), DEVICE);
+  EXPECT_EQ(a2.getDevice().getDeviceType(), GPU);
 }
 
-TEST(DataTest, CopyGPUToGPUTest) {
-  int size = 10;
-  Device cpu(CPU, DEFAULT);
-  Device gpu(GPU, DEFAULT);
+TEST(ArenaTest, MakeMemoryTest) {
+  Arena a0(2_MB, HOST, CPU);
 
-  int tmp[10];
-  for (int i = 0; i < size; i++)
-    tmp[i] = i;
+  void *p0 = a0.makeMemory(1_MB);
+  void *p1 = a0.makeMemory(1_MB);
 
-  int *src = (int *)darkside::makeData(sizeof(int) * size, gpu);
-  int *dst = (int *)darkside::makeData(sizeof(int) * size, gpu);
+  EXPECT_NE(p0, nullptr);
+  EXPECT_NE(p1, nullptr);
+  EXPECT_EQ(a0.getOffset(), 2_MB);
 
-  darkside::copyData(src, tmp, sizeof(int) * size, DevicePair(cpu, gpu));
-  darkside::copyData(dst, src, sizeof(int) * size, DevicePair(gpu, gpu));
+  EXPECT_EQ((uint8_t *)p0 + 1_MB, (uint8_t *)p1);
 
-  int res[10];
-  darkside::copyData(res, dst, sizeof(int) * size, DevicePair(gpu, cpu));
-
-  for (int i = 0; i < size; i++)
-    EXPECT_EQ(res[i], i);
-
-  darkside::freeData(src, gpu);
-  darkside::freeData(dst, gpu);
+  void *p2 = a0.makeMemory(60);
+  EXPECT_EQ(p2, nullptr);
+  EXPECT_EQ(a0.getOffset(), 2_MB);
 }
 
-TEST(StorageTest, ConstructorTest) {
-  Device cpu(CPU, DEFAULT);
+TEST(ArenaTest, FreeMemoryTest) {
+  Arena a0(100_MB, HOST, CPU);
 
-  Storage s(100, ScalarType::INT_32, cpu);
+  a0.makeMemory(50_MB);
+  EXPECT_EQ(a0.getOffset(), 50_MB);
 
-  EXPECT_NE(s.getData(), nullptr);
-  EXPECT_EQ(s.getSize(), 100);
-  EXPECT_EQ(s.getScalarType(), ScalarType::INT_32);
+  a0.freeMemory(20_MB);
+  EXPECT_EQ(a0.getOffset(), 30_MB);
+
+  a0.freeMemory(100_MB);
+  EXPECT_EQ(a0.getOffset(), 0);
 }
 
-TEST(StorageTest, CopyConstructorTest) {
-  Device cpu(CPU, DEFAULT);
+TEST(ArenaTest, WipeMemoryTest) {
+  Arena a0(500_MB, HOST, CPU);
 
-  Storage a(100, ScalarType::INT_32, cpu);
-  int *data = (int *)a.getData();
+  a0.makeMemory(100_MB);
+  a0.makeMemory(200_MB);
+  EXPECT_EQ(a0.getOffset(), 300_MB);
 
-  for (int i = 0; i < 25; i++)
-    data[i] = i;
+  a0.wipeMemory();
+  EXPECT_EQ(a0.getOffset(), 0);
 
-  Storage b = a;
-  int *bdata = (int *)b.getData();
-
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(bdata[i], i);
+  void *p_new = a0.makeMemory(10);
+  EXPECT_NE(p_new, nullptr);
 }
 
-TEST(StorageTest, MoveConstructorTest) {
-  Device cpu(CPU, DEFAULT);
+TEST(ArenaTest, CopyMemoryTest) {
+  uint64_t size = 4;
+  Arena a0(size, HOST, CPU);
+  Arena a1(size, HOST, CPU);
 
-  Storage a(100, ScalarType::INT_32, cpu);
-  void *ptr = a.getData();
+  uint8_t *p0 = (uint8_t *)a0.makeMemory(size);
+  uint8_t *p1 = (uint8_t *)a1.makeMemory(size);
 
-  Storage b = std::move(a);
+  p0[0] = 10;
+  p0[1] = 20;
+  p0[2] = 30;
+  p0[3] = 40;
 
-  EXPECT_EQ(b.getData(), ptr);
-  EXPECT_EQ(a.getData(), nullptr);
-}
+  DevicePair d0(CPU, CPU);
+  Arena::copyMemory(p1, p0, size, d0);
 
-TEST(StorageTest, CopyAssignmentTest) {
-  Device cpu(CPU, DEFAULT);
-
-  Storage a(100, ScalarType::INT_32, cpu);
-  Storage b;
-
-  int *data = (int *)a.getData();
-  for (int i = 0; i < 25; i++)
-    data[i] = i;
-
-  b = a;
-
-  int *bdata = (int *)b.getData();
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(bdata[i], i);
-}
-
-TEST(StorageTest, MoveAssignmentTest) {
-  Device cpu(CPU, DEFAULT);
-
-  Storage a(100, ScalarType::INT_32, cpu);
-  void *ptr = a.getData();
-
-  Storage b;
-  b = std::move(a);
-
-  EXPECT_EQ(b.getData(), ptr);
-  EXPECT_EQ(a.getData(), nullptr);
-}
-
-TEST(StorageTest, SetDevice) {
-  Device cpu(CPU, DEFAULT);
-  Device gpu(GPU, DEFAULT);
-
-  Storage s(100, ScalarType::INT_32, cpu);
-  int *data = (int *)s.getData();
-
-  for (int i = 0; i < 25; i++)
-    data[i] = i;
-
-  s.setDevice(gpu);
-
-  int res[25];
-  darkside::copyData(res, s.getData(), sizeof(int) * 25, DevicePair(gpu, cpu));
-
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(res[i], i);
-}
-
-TEST(StorageTest, FillDataInt64Test) {
-  Device cpu(CPU, DEFAULT);
-
-  Storage s(100, ScalarType::INT_32, cpu);
-  s.fillData(42);
-
-  int *data = (int *)s.getData();
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(data[i], 42);
-}
-
-TEST(StorageTest, FillDataFloat64Test) {
-  Device cpu(CPU, DEFAULT);
-
-  Storage s(100, ScalarType::FLOAT_64, cpu);
-  s.fillData(3.14);
-
-  double *data = (double *)s.getData();
-  for (int i = 0; i < 25; i++)
-    EXPECT_DOUBLE_EQ(data[i], 3.14);
-}
-
-TEST(StorageTest, FillDataUnsignedInt64Test) {
-  Device cpu(CPU, DEFAULT);
-
-  Storage s(100, ScalarType::UNSIGNED_INT_64, cpu);
-  s.fillData(123);
-
-  uint64_t *data = (uint64_t *)s.getData();
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(data[i], 123);
-}
-
-TEST(StorageTest, FillRandomDataTest) {
-  Device cpu(CPU, DEFAULT);
-  Device gpu(GPU, DEFAULT);
-
-  Storage s(100, ScalarType::INT_32, gpu);
-  s.fillData(0);
-  s.fillRandomData();
-  s.setDevice(cpu);
-
-  int *data = (int *)s.getData();
-
-  bool all_zero = true;
-  for (int i = 0; i < 25; i++) {
-    if (data[i] != 0) {
-      all_zero = false;
-      break;
-    }
-  }
-
-  EXPECT_FALSE(all_zero);
-}
-
-TEST(StorageTest, FillIncreaseDataCPUTest) {
-  Device cpu(CPU, DEFAULT);
-
-  Storage s(100, ScalarType::INT_32, cpu);
-  s.fillIncreaseData();
-
-  int *data = (int *)s.getData();
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(data[i], i);
-}
-
-TEST(StorageTest, FillDecreaseDataCPUTest) {
-  Device cpu(CPU, DEFAULT);
-
-  Storage s(100, ScalarType::INT_32, cpu);
-  s.fillDecreaseData();
-
-  int *data = (int *)s.getData();
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(data[i], 100 - 1 - i);
-}
-
-TEST(StorageTest, FillIncreaseDataGPUTest) {
-  Device cpu(CPU, DEFAULT);
-  Device gpu(GPU, DEFAULT);
-
-  Storage s(100, ScalarType::INT_32, gpu);
-  s.fillIncreaseData();
-
-  int res[25];
-  darkside::copyData(res, s.getData(), sizeof(int) * 25, DevicePair(gpu, cpu));
-
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(res[i], i);
-}
-
-TEST(StorageTest, FillDecreaseDataGPUTest) {
-  Device cpu(CPU, DEFAULT);
-  Device gpu(GPU, DEFAULT);
-
-  Storage s(100, ScalarType::INT_32, gpu);
-  s.fillDecreaseData();
-
-  int res[25];
-  darkside::copyData(res, s.getData(), sizeof(int) * 25, DevicePair(gpu, cpu));
-
-  for (int i = 0; i < 25; i++)
-    EXPECT_EQ(res[i], 100 - 1 - i);
+  EXPECT_EQ(p1[0], 10);
+  EXPECT_EQ(p1[3], 40);
 }
 } // namespace startorch

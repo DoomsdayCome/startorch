@@ -2,51 +2,43 @@
 
 #include "startorch/common.hpp"
 #include "startorch/device.hpp"
+#include "startorch/format.hpp"
 
 #include <cstdint>
-#include <type_traits>
 
 namespace startorch {
-class ScalarToCPP {
+class Arena {
 private:
-  ScalarType scalar_type_ = ScalarType::UNSIGNED_INT_64;
-
-  union {
-    int64_t i_;
-    double d_;
-    uint64_t u_{0};
-  };
+  void *data_ = nullptr;
+  uint64_t size_ = 0;
+  uint64_t offset_ = 0;
+  MemoryType memory_type_ = MemoryType::HOST;
+  Device device_ = Device();
 
 public:
-  ScalarToCPP() = default;
-  template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-  ScalarToCPP(T v) {
-    if constexpr (std::is_signed_v<T>) {
-      scalar_type_ = ScalarType::INT_64;
-      i_ = static_cast<int64_t>(v);
-    } else {
-      scalar_type_ = ScalarType::UNSIGNED_INT_64;
-      u_ = static_cast<uint64_t>(v);
-    }
-  }
+  Arena() = default;
+  Arena(uint64_t size, MemoryType memory_type, const Device &device);
 
-  ScalarToCPP(double v) {
-    scalar_type_ = ScalarType::FLOAT_64;
-    d_ = v;
-  }
+  Arena(const Arena &other) = delete;
+  Arena(Arena &&other) noexcept = delete;
 
-  template <typename T> T value() const {
-    switch (scalar_type_) {
-    case ScalarType::INT_64:
-      return static_cast<T>(i_);
-    case ScalarType::UNSIGNED_INT_64:
-      return static_cast<T>(u_);
-    case ScalarType::FLOAT_64:
-      return static_cast<T>(d_);
-    default:
-      return static_cast<T>(u_);
-    }
-  }
+  ~Arena();
+
+  Arena &operator=(const Arena &other) = delete;
+  Arena &operator=(Arena &&other) noexcept = delete;
+
+  const void *getData() const;
+  uint64_t getSize() const;
+  uint64_t getOffset() const;
+  MemoryType getMemoryType() const;
+  const Device &getDevice() const;
+
+  void *makeData(uint64_t size);
+  void freeData(uint64_t size);
+  void wipeData();
+
+  static void copyData(void *destination, const void *source, uint64_t size,
+                         const DevicePair &device_pair);
 };
 
 class Storage {
@@ -54,11 +46,11 @@ private:
   void *data_ = nullptr;
   uint64_t size_ = 0;
   ScalarType scalar_type_ = ScalarType::UNSIGNED_INT_8;
-  Device device_ = Device();
+  Arena *arena_ = nullptr;
 
 public:
   Storage() = default;
-  Storage(uint64_t size, ScalarType scalar_type, const Device &device);
+  Storage(uint64_t size, ScalarType scalar_type, Arena *arena);
 
   Storage(const Storage &other);
   Storage(Storage &&other) noexcept;
@@ -68,16 +60,16 @@ public:
   Storage &operator=(const Storage &other);
   Storage &operator=(Storage &&other) noexcept;
 
-  void *getData() const;
+  const void *getData() const;
   uint64_t getSize() const;
   ScalarType getScalarType() const;
-  const Device &getDevice() const;
+  Arena *getArena() const;
 
-  void setDevice(const Device &device);
+  void setArena(Arena *arena);
 
-  void fillData(const ScalarToCPP &value);
-  void fillRandomData();
+  void fillData(const darkside::ScalarValueToCPP &value);
   void fillIncreaseData();
   void fillDecreaseData();
+  void fillOrderData(OrderType order_type);
 };
 } // namespace startorch

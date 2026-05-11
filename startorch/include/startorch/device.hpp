@@ -6,11 +6,10 @@ namespace startorch {
 class Device {
 private:
   DeviceType device_type_ = DeviceType::CPU;
-  MemoryType memory_type_ = MemoryType::DEFAULT;
 
 public:
   Device() = default;
-  Device(DeviceType device_type, MemoryType memory_type);
+  Device(DeviceType device_type);
 
   Device(const Device &other) = default;
   Device(Device &&other) noexcept = default;
@@ -24,7 +23,6 @@ public:
   bool operator!=(const Device &other) const;
 
   DeviceType getDeviceType() const;
-  MemoryType getMemoryType() const;
 };
 
 class DevicePair {

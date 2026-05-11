@@ -2,6 +2,18 @@
 
 #include <cstdint>
 
+constexpr uint64_t operator""_KB(unsigned long long v) { return v << 10; }
+constexpr uint64_t operator""_MB(unsigned long long v) { return v << 20; }
+constexpr uint64_t operator""_GB(unsigned long long v) { return v << 30; }
+
+namespace darkside {
+inline constexpr uint64_t THREADS = 256;
+
+inline constexpr uint64_t BLOCKS(uint64_t size) {
+  return (size + THREADS - 1) / THREADS;
+}
+} // namespace darkside
+
 namespace startorch {
 enum class DeviceType : uint8_t {
   CPU = 0,
@@ -12,12 +24,14 @@ inline constexpr DeviceType CPU = DeviceType::CPU;
 inline constexpr DeviceType GPU = DeviceType::GPU;
 
 enum class MemoryType : uint8_t {
-  DEFAULT = 0,
-  PINNED = 1,
-  UNIFIED = 2,
+  HOST = 0,
+  DEVICE = 1,
+  PINNED = 2,
+  UNIFIED = 3,
 };
 
-inline constexpr MemoryType DEFAULT = MemoryType::DEFAULT;
+inline constexpr MemoryType HOST = MemoryType::HOST;
+inline constexpr MemoryType DEVICE = MemoryType::DEVICE;
 inline constexpr MemoryType PINNED = MemoryType::PINNED;
 inline constexpr MemoryType UNIFIED = MemoryType::UNIFIED;
 
