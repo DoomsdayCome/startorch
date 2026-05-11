@@ -10,6 +10,7 @@ class Layout {
 private:
   ScalarType scalar_type_ = ScalarType::UNSIGNED_INT_64;
   Arena *arena_ = nullptr;
+  OrderType order_type_ = OrderType::ROW_MAJOR;
   uint64_t size_ = 0;
   Storage shape_ = Storage(size_, scalar_type_, arena_);
   Storage order_ = Storage(size_, scalar_type_, arena_);
@@ -23,6 +24,7 @@ public:
   Layout(const Storage &shape, OrderType order_type, const Storage &strides,
          const Storage &offsets, Arena *arena);
   Layout(uint64_t size, Arena *arena);
+  Layout(uint64_t size, OrderType order_type, Arena *arena);
 
   Layout(const Layout &other) = default;
   Layout(Layout &&other) noexcept = default;

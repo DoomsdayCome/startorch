@@ -27,7 +27,7 @@ public:
   Arena &operator=(const Arena &other) = delete;
   Arena &operator=(Arena &&other) noexcept = delete;
 
-  void *getData() const;
+  void *getData();
   uint64_t getSize() const;
   uint64_t getOffset() const;
   MemoryType getMemoryType() const;
@@ -60,7 +60,7 @@ public:
   Storage &operator=(const Storage &other);
   Storage &operator=(Storage &&other) noexcept;
 
-  void *getData() const;
+  void *getData();
   uint64_t getSize() const;
   ScalarType getScalarType() const;
   Arena *getArena() const;
@@ -68,13 +68,13 @@ public:
   void setArena(Arena *arena);
   void setScalarType(ScalarType scalar_type);
 
-  void fillData(const darkside::ScalarValueToCPP &value);
-  void fillIncreasedData(const darkside::ScalarValueToCPP &start,
-                         const darkside::ScalarValueToCPP &step);
-  void fillDecreasedData(const darkside::ScalarValueToCPP &start,
-                         const darkside::ScalarValueToCPP &step);
-  void fillOrderData(const darkside::ScalarValueToCPP &start,
-                     const darkside::ScalarValueToCPP &step,
+  void fillData(const darkside::CPPValueToScalarValue &value);
+  void fillIncreasedData(const darkside::CPPValueToScalarValue &start,
+                         const darkside::CPPValueToScalarValue &step);
+  void fillDecreasedData(const darkside::CPPValueToScalarValue &start,
+                         const darkside::CPPValueToScalarValue &step);
+  void fillOrderedData(const darkside::CPPValueToScalarValue &start,
+                     const darkside::CPPValueToScalarValue &step,
                      OrderType order_type);
 };
 } // namespace startorch

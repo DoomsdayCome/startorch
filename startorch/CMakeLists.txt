@@ -28,7 +28,7 @@ target_sources(startorch
     "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/layout.cpp"
     # "source/startorch/random.cpp"
     #
-    "${CMAKE_CURRENT_SOURCE_DIR}/source/darkside/assign.cu"
+    "${CMAKE_CURRENT_SOURCE_DIR}/source/darkside/kernel.cu"
     # "source/darkside/memory.cu"
     # "source/darkside/format.cpp"
 )

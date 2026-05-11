@@ -6,10 +6,10 @@
 #include <type_traits>
 
 namespace darkside {
-template <typename T> struct CPPTypeToScalar;
+template <typename T> struct CPPTypeToScalarType;
 
 #define CPP_TO_SCALAR(cpp_type, scalar_type)                                   \
-  template <> struct CPPTypeToScalar<cpp_type> {                               \
+  template <> struct CPPTypeToScalarType<cpp_type> {                           \
     static constexpr startorch::ScalarType type = scalar_type;                 \
   };
 
@@ -26,10 +26,10 @@ CPP_TO_SCALAR(uint64_t, startorch::ScalarType::UNSIGNED_INT_64);
 
 #undef CPP_TO_SCALAR
 
-template <startorch::ScalarType S> struct ScalarTypeToCPP;
+template <startorch::ScalarType S> struct ScalarTypeToCPPType;
 
 #define SCALAR_TO_CPP(scalar_type, cpp_type)                                   \
-  template <> struct ScalarTypeToCPP<scalar_type> {                            \
+  template <> struct ScalarTypeToCPPType<scalar_type> {                        \
     using type = cpp_type;                                                     \
   };
 
@@ -46,7 +46,7 @@ SCALAR_TO_CPP(startorch::ScalarType::UNSIGNED_INT_64, uint64_t);
 
 #undef SCALAR_TO_CPP
 
-class ScalarValueToCPP {
+class CPPValueToScalarValue {
 private:
   startorch::ScalarType scalar_type_ = startorch::ScalarType::UNSIGNED_INT_64;
 
@@ -57,10 +57,10 @@ private:
   };
 
 public:
-  ScalarValueToCPP() = default;
+  CPPValueToScalarValue() = default;
 
   template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-  ScalarValueToCPP(T v) {
+  CPPValueToScalarValue(T v) {
     if constexpr (std::is_signed_v<T>) {
       scalar_type_ = startorch::ScalarType::INT_64;
       i_ = static_cast<int64_t>(v);
@@ -70,7 +70,7 @@ public:
     }
   }
 
-  ScalarValueToCPP(double v) {
+  CPPValueToScalarValue(double v) {
     scalar_type_ = startorch::ScalarType::FLOAT_64;
     d_ = v;
   }

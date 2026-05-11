@@ -20,4 +20,7 @@ void fillOrderedData(void *data, uint64_t size, T start, T step,
 template <typename T>
 void fillStrides(void *strides, void *shape, void *order, uint64_t size,
                  startorch::Arena *arena);
+template <typename cpp_type, typename new_cpp_type>
+void convertDataType(const void *data, void *new_data, uint64_t size,
+                 startorch::Arena *arena);
 } // namespace darkside
