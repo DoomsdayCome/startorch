@@ -1,3 +1,5 @@
+#pragma once
+
 #include "startorch/common.hpp"
 #include "startorch/format.hpp"
 #include "startorch/layout.hpp"

@@ -3,7 +3,6 @@
 
 #include "darkside/kernel.cuh"
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 
