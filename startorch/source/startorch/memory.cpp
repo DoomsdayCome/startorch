@@ -266,25 +266,25 @@ void Storage::setArena(Arena *arena) {
 }
 
 #define TARGET_DISPATCH(cpp_type, scalar_type)                                 \
-  case ScalarType::scalar_type: {                                              \
-    using new_cpp_type = typename darkside::ScalarTypeToCPPType<               \
-        ScalarType::scalar_type>::getType;                                     \
+  case scalar_type: {                                                          \
+    using new_cpp_type =                                                       \
+        typename darkside::ScalarTypeToCPPType<scalar_type>::getType;          \
     darkside::convertDataType<cpp_type, new_cpp_type>(data_, new_data, size_,  \
                                                       arena_);                 \
     break;                                                                     \
   }
 
 #define CONVERT_ALL(cpp_type)                                                  \
-  TARGET_DISPATCH(cpp_type, INT_8)                                             \
-  TARGET_DISPATCH(cpp_type, INT_16)                                            \
-  TARGET_DISPATCH(cpp_type, INT_32)                                            \
-  TARGET_DISPATCH(cpp_type, INT_64)                                            \
-  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_8)                                    \
-  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_16)                                   \
-  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_32)                                   \
-  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_64)                                   \
-  TARGET_DISPATCH(cpp_type, FLOAT_32)                                          \
-  TARGET_DISPATCH(cpp_type, FLOAT_64)
+  TARGET_DISPATCH(cpp_type, ScalarType::INT_8)                                 \
+  TARGET_DISPATCH(cpp_type, ScalarType::INT_16)                                \
+  TARGET_DISPATCH(cpp_type, ScalarType::INT_32)                                \
+  TARGET_DISPATCH(cpp_type, ScalarType::INT_64)                                \
+  TARGET_DISPATCH(cpp_type, ScalarType::UNSIGNED_INT_8)                        \
+  TARGET_DISPATCH(cpp_type, ScalarType::UNSIGNED_INT_16)                       \
+  TARGET_DISPATCH(cpp_type, ScalarType::UNSIGNED_INT_32)                       \
+  TARGET_DISPATCH(cpp_type, ScalarType::UNSIGNED_INT_64)                       \
+  TARGET_DISPATCH(cpp_type, ScalarType::FLOAT_32)                              \
+  TARGET_DISPATCH(cpp_type, ScalarType::FLOAT_64)
 
 void Storage::setScalarType(ScalarType scalar_type) {
   if (scalar_type == scalar_type_ || size_ == 0) {
@@ -352,55 +352,55 @@ void Storage::setScalarType(ScalarType scalar_type) {
   scalar_type_ = scalar_type;
 }
 
-#define STORAGE_DISPATCH(SCALAR_TYPE, ACTION)                                  \
+#define STORAGE_DISPATCH(scalar_type, action)                                  \
   case ScalarType::INT_8: {                                                    \
     using T = int8_t;                                                          \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::INT_16: {                                                   \
     using T = int16_t;                                                         \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::INT_32: {                                                   \
     using T = int32_t;                                                         \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::INT_64: {                                                   \
     using T = int64_t;                                                         \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::FLOAT_32: {                                                 \
     using T = float;                                                           \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::FLOAT_64: {                                                 \
     using T = double;                                                          \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::UNSIGNED_INT_8: {                                           \
     using T = uint8_t;                                                         \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::UNSIGNED_INT_16: {                                          \
     using T = uint16_t;                                                        \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::UNSIGNED_INT_32: {                                          \
     using T = uint32_t;                                                        \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }                                                                            \
   case ScalarType::UNSIGNED_INT_64: {                                          \
     using T = uint64_t;                                                        \
-    ACTION;                                                                    \
+    action;                                                                    \
     break;                                                                     \
   }
 

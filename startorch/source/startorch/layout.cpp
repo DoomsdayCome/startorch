@@ -96,22 +96,22 @@ Layout::Layout(const Storage &shape, const Storage &order,
     strides_ = Storage(size_, scalar_type_, arena_);
 
     switch (scalar_type_) {
-#define STRIDE_CASE(ST_TYPE, CPP_TYPE)                                         \
-  case ScalarType::ST_TYPE:                                                    \
-    darkside::fillStrides<CPP_TYPE>(strides_.getData(), shape_.getData(),      \
+#define STRIDE_CASE(strides_type, cpp_type)                                    \
+  case strides_type:                                                           \
+    darkside::fillStrides<cpp_type>(strides_.getData(), shape_.getData(),      \
                                     order_.getData(), size_, arena_);          \
     break;
 
-      STRIDE_CASE(INT_8, int8_t)
-      STRIDE_CASE(INT_16, int16_t)
-      STRIDE_CASE(INT_32, int32_t)
-      STRIDE_CASE(INT_64, int64_t)
-      STRIDE_CASE(UNSIGNED_INT_8, uint8_t)
-      STRIDE_CASE(UNSIGNED_INT_16, uint16_t)
-      STRIDE_CASE(UNSIGNED_INT_32, uint32_t)
-      STRIDE_CASE(UNSIGNED_INT_64, uint64_t)
-      STRIDE_CASE(FLOAT_32, float)
-      STRIDE_CASE(FLOAT_64, double)
+      STRIDE_CASE(ScalarType::INT_8, int8_t)
+      STRIDE_CASE(ScalarType::INT_16, int16_t)
+      STRIDE_CASE(ScalarType::INT_32, int32_t)
+      STRIDE_CASE(ScalarType::INT_64, int64_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_8, uint8_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_16, uint16_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_32, uint32_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_64, uint64_t)
+      STRIDE_CASE(ScalarType::FLOAT_32, float)
+      STRIDE_CASE(ScalarType::FLOAT_64, double)
 
 #undef STRIDE_CASE
 
@@ -161,22 +161,22 @@ Layout::Layout(const Storage &shape, OrderType order_type,
     strides_ = Storage(size_, scalar_type_, arena_);
 
     switch (scalar_type_) {
-#define STRIDE_CASE(ST_TYPE, CPP_TYPE)                                         \
-  case ScalarType::ST_TYPE:                                                    \
-    darkside::fillStrides<CPP_TYPE>(strides_.getData(), shape_.getData(),      \
+#define STRIDE_CASE(strides_type, cpp_type)                                    \
+  case strides_type:                                                           \
+    darkside::fillStrides<cpp_type>(strides_.getData(), shape_.getData(),      \
                                     order_.getData(), size_, arena_);          \
     break;
 
-      STRIDE_CASE(INT_8, int8_t)
-      STRIDE_CASE(INT_16, int16_t)
-      STRIDE_CASE(INT_32, int32_t)
-      STRIDE_CASE(INT_64, int64_t)
-      STRIDE_CASE(UNSIGNED_INT_8, uint8_t)
-      STRIDE_CASE(UNSIGNED_INT_16, uint16_t)
-      STRIDE_CASE(UNSIGNED_INT_32, uint32_t)
-      STRIDE_CASE(UNSIGNED_INT_64, uint64_t)
-      STRIDE_CASE(FLOAT_32, float)
-      STRIDE_CASE(FLOAT_64, double)
+      STRIDE_CASE(ScalarType::INT_8, int8_t)
+      STRIDE_CASE(ScalarType::INT_16, int16_t)
+      STRIDE_CASE(ScalarType::INT_32, int32_t)
+      STRIDE_CASE(ScalarType::INT_64, int64_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_8, uint8_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_16, uint16_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_32, uint32_t)
+      STRIDE_CASE(ScalarType::UNSIGNED_INT_64, uint64_t)
+      STRIDE_CASE(ScalarType::FLOAT_32, float)
+      STRIDE_CASE(ScalarType::FLOAT_64, double)
 
 #undef STRIDE_CASE
 

@@ -90,6 +90,8 @@ public:
       return static_cast<T>(u_);
     }
   }
+
+  startorch::ScalarType getScalarType() const { return scalar_type_; }
 };
 
 inline constexpr uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
