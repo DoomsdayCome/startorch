@@ -265,25 +265,26 @@ void Storage::setArena(Arena *arena) {
   arena_ = arena;
 }
 
-#define TARGET_DISPATCH(OLD_T, NEW_SCALAR_TYPE)                                \
-  case ScalarType::NEW_SCALAR_TYPE: {                                          \
-    using NEW_T = typename darkside::ScalarTypeToCPPType<                      \
-        ScalarType::NEW_SCALAR_TYPE>::type;                                    \
-    darkside::convertDataType<OLD_T, NEW_T>(data_, new_data, size_, arena_);    \
+#define TARGET_DISPATCH(cpp_type, scalar_type)                                 \
+  case ScalarType::scalar_type: {                                              \
+    using new_cpp_type = typename darkside::ScalarTypeToCPPType<               \
+        ScalarType::scalar_type>::getType;                                     \
+    darkside::convertDataType<cpp_type, new_cpp_type>(data_, new_data, size_,  \
+                                                      arena_);                 \
     break;                                                                     \
   }
 
-#define CONVERT_ALL_TO_TARGET(OLD_T)                                           \
-  TARGET_DISPATCH(OLD_T, INT_8)                                                \
-  TARGET_DISPATCH(OLD_T, INT_16)                                               \
-  TARGET_DISPATCH(OLD_T, INT_32)                                               \
-  TARGET_DISPATCH(OLD_T, INT_64)                                               \
-  TARGET_DISPATCH(OLD_T, UNSIGNED_INT_8)                                       \
-  TARGET_DISPATCH(OLD_T, UNSIGNED_INT_16)                                      \
-  TARGET_DISPATCH(OLD_T, UNSIGNED_INT_32)                                      \
-  TARGET_DISPATCH(OLD_T, UNSIGNED_INT_64)                                      \
-  TARGET_DISPATCH(OLD_T, FLOAT_32)                                             \
-  TARGET_DISPATCH(OLD_T, FLOAT_64)
+#define CONVERT_ALL(cpp_type)                                                  \
+  TARGET_DISPATCH(cpp_type, INT_8)                                             \
+  TARGET_DISPATCH(cpp_type, INT_16)                                            \
+  TARGET_DISPATCH(cpp_type, INT_32)                                            \
+  TARGET_DISPATCH(cpp_type, INT_64)                                            \
+  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_8)                                    \
+  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_16)                                   \
+  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_32)                                   \
+  TARGET_DISPATCH(cpp_type, UNSIGNED_INT_64)                                   \
+  TARGET_DISPATCH(cpp_type, FLOAT_32)                                          \
+  TARGET_DISPATCH(cpp_type, FLOAT_64)
 
 void Storage::setScalarType(ScalarType scalar_type) {
   if (scalar_type == scalar_type_ || size_ == 0) {
@@ -303,40 +304,40 @@ void Storage::setScalarType(ScalarType scalar_type) {
   switch (scalar_type_) {
   case ScalarType::INT_8: {
     using T = int8_t;
-    switch (scalar_type) { CONVERT_ALL_TO_TARGET(T) default : break; }
+    switch (scalar_type) { CONVERT_ALL(T) default : break; }
     break;
   }
   case ScalarType::INT_32: {
     using T = int32_t;
-    switch (scalar_type) { CONVERT_ALL_TO_TARGET(T) default : break; }
+    switch (scalar_type) { CONVERT_ALL(T) default : break; }
     break;
   }
   case ScalarType::INT_64: {
     using T = int64_t;
-    switch (scalar_type) { CONVERT_ALL_TO_TARGET(T) default : break; }
+    switch (scalar_type) { CONVERT_ALL(T) default : break; }
     break;
   }
   case ScalarType::FLOAT_32: {
     using T = float;
-    switch (scalar_type) { CONVERT_ALL_TO_TARGET(T) default : break; }
+    switch (scalar_type) { CONVERT_ALL(T) default : break; }
     break;
   }
   case ScalarType::FLOAT_64: {
     using T = double;
-    switch (scalar_type) { CONVERT_ALL_TO_TARGET(T) default : break; }
+    switch (scalar_type) { CONVERT_ALL(T) default : break; }
     break;
   }
   case ScalarType::UNSIGNED_INT_8: {
     using T = uint8_t;
-    switch (scalar_type) { CONVERT_ALL_TO_TARGET(T) default : break; }
+    switch (scalar_type) { CONVERT_ALL(T) default : break; }
     break;
   }
   case ScalarType::UNSIGNED_INT_32: {
     using T = uint32_t;
-    switch (scalar_type) { CONVERT_ALL_TO_TARGET(T) default : break; }
+    switch (scalar_type) { CONVERT_ALL(T) default : break; }
     break;
   }
-  
+
   default:
     break;
   }
@@ -405,8 +406,9 @@ void Storage::setScalarType(ScalarType scalar_type) {
 
 void Storage::fillData(const darkside::CPPValueToScalarValue &value) {
   switch (scalar_type_) {
-    STORAGE_DISPATCH(scalar_type_, darkside::fillData<T>(
-                                       data_, size_, value.value<T>(), arena_))
+    STORAGE_DISPATCH(
+        scalar_type_,
+        darkside::fillData<T>(data_, size_, value.getValue<T>(), arena_))
   default:
     break;
   }
@@ -416,8 +418,8 @@ void Storage::fillIncreasedData(const darkside::CPPValueToScalarValue &start,
                                 const darkside::CPPValueToScalarValue &step) {
   switch (scalar_type_) {
     STORAGE_DISPATCH(scalar_type_, darkside::fillIncreasedData<T>(
-                                       data_, size_, start.value<T>(),
-                                       step.value<T>(), arena_))
+                                       data_, size_, start.getValue<T>(),
+                                       step.getValue<T>(), arena_))
   default:
     break;
   }
@@ -427,23 +429,25 @@ void Storage::fillDecreasedData(const darkside::CPPValueToScalarValue &start,
                                 const darkside::CPPValueToScalarValue &step) {
   switch (scalar_type_) {
     STORAGE_DISPATCH(scalar_type_, darkside::fillDecreasedData<T>(
-                                       data_, size_, start.value<T>(),
-                                       step.value<T>(), arena_))
+                                       data_, size_, start.getValue<T>(),
+                                       step.getValue<T>(), arena_))
   default:
     break;
   }
 }
 
 void Storage::fillOrderedData(const darkside::CPPValueToScalarValue &start,
-                            const darkside::CPPValueToScalarValue &step,
-                            OrderType order_type) {
+                              const darkside::CPPValueToScalarValue &step,
+                              OrderType order_type) {
   switch (scalar_type_) {
-    STORAGE_DISPATCH(scalar_type_, darkside::fillOrderedData<T>(
-                                       data_, size_, start.value<T>(),
-                                       step.value<int>(), order_type, arena_))
+    STORAGE_DISPATCH(
+        scalar_type_,
+        darkside::fillOrderedData<T>(data_, size_, start.getValue<T>(),
+                                     step.getValue<int>(), order_type, arena_))
   default:
     break;
   }
 }
+
 #undef STORAGE_DISPATCH
 } // namespace startorch

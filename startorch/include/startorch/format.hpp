@@ -10,7 +10,7 @@ template <typename T> struct CPPTypeToScalarType;
 
 #define CPP_TO_SCALAR(cpp_type, scalar_type)                                   \
   template <> struct CPPTypeToScalarType<cpp_type> {                           \
-    static constexpr startorch::ScalarType type = scalar_type;                 \
+    static constexpr startorch::ScalarType getType = scalar_type;              \
   };
 
 CPP_TO_SCALAR(int8_t, startorch::ScalarType::INT_8);
@@ -30,7 +30,7 @@ template <startorch::ScalarType S> struct ScalarTypeToCPPType;
 
 #define SCALAR_TO_CPP(scalar_type, cpp_type)                                   \
   template <> struct ScalarTypeToCPPType<scalar_type> {                        \
-    using type = cpp_type;                                                     \
+    using getType = cpp_type;                                                  \
   };
 
 SCALAR_TO_CPP(startorch::ScalarType::INT_8, int8_t);
@@ -75,7 +75,7 @@ public:
     d_ = v;
   }
 
-  template <typename T> T value() const {
+  template <typename T> T getValue() const {
     switch (scalar_type_) {
     case startorch::ScalarType::INT_64:
       return static_cast<T>(i_);

@@ -23,8 +23,6 @@ public:
          const Storage &offsets, Arena *arena);
   Layout(const Storage &shape, OrderType order_type, const Storage &strides,
          const Storage &offsets, Arena *arena);
-  Layout(uint64_t size, Arena *arena);
-  Layout(uint64_t size, OrderType order_type, Arena *arena);
 
   Layout(const Layout &other) = default;
   Layout(Layout &&other) noexcept = default;
@@ -38,5 +36,6 @@ public:
   const Storage &getOrder() const;
   const Storage &getStrides() const;
   const Storage &getOffsets() const;
+  uint64_t getIndex() const;
 };
 } // namespace startorch
