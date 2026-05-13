@@ -21,10 +21,12 @@ const Device &Arena::getDevice() const { return device_; }
 
 Arena::Arena(uint64_t size, MemoryType memory_type, const Device &device)
     : size_(size), memory_type_(memory_type), device_(device), data_(nullptr) {
+
   if (device_.getDeviceType() == DeviceType::CPU) {
     if (memory_type_ == MemoryType::DEVICE ||
-        memory_type_ == MemoryType::UNIFIED)
+        memory_type_ == MemoryType::UNIFIED) {
       memory_type_ = MemoryType::HOST;
+    }
   } else if (device_.getDeviceType() == DeviceType::GPU) {
     if (memory_type_ == MemoryType::HOST ||
         memory_type_ == MemoryType::PINNED) {
@@ -93,11 +95,11 @@ void *Arena::makeData(uint64_t size) {
   if (offset_ + size > size_)
     return nullptr;
 
-  void *pointer = (uint8_t *)data_ + offset_;
+  void *data = (uint8_t *)data_ + offset_;
 
   offset_ += size;
 
-  return pointer;
+  return data;
 }
 
 void Arena::freeData(uint64_t size) {
@@ -111,21 +113,22 @@ void Arena::wipeData() { offset_ = 0; }
 
 void Arena::copyData(void *destination, const void *source, uint64_t size,
                      const DevicePair &device_pair) {
-  if (!source || !destination || size == 0)
+
+  if (!destination || !source || size == 0)
     return;
+
+  auto src = device_pair.getFirstDevice().getDeviceType();
+  auto dst = device_pair.getSecondDevice().getDeviceType();
 
   cudaMemcpyKind kind = cudaMemcpyDefault;
 
-  auto src_type = device_pair.getFirstDevice().getDeviceType();
-  auto dst_type = device_pair.getSecondDevice().getDeviceType();
-
-  if (src_type == DeviceType::CPU && dst_type == DeviceType::GPU)
+  if (src == DeviceType::CPU && dst == DeviceType::GPU) {
     kind = cudaMemcpyHostToDevice;
-  else if (src_type == DeviceType::GPU && dst_type == DeviceType::CPU)
+  } else if (src == DeviceType::GPU && dst == DeviceType::CPU) {
     kind = cudaMemcpyDeviceToHost;
-  else if (src_type == DeviceType::GPU && dst_type == DeviceType::GPU)
+  } else if (src == DeviceType::GPU && dst == DeviceType::GPU) {
     kind = cudaMemcpyDeviceToDevice;
-  else {
+  } else {
     memcpy(destination, source, size);
     return;
   }
@@ -135,15 +138,18 @@ void Arena::copyData(void *destination, const void *source, uint64_t size,
 
 Storage::Storage(uint64_t size, ScalarType scalar_type, Arena *arena)
     : size_(size), scalar_type_(scalar_type), arena_(arena) {
+
   if (size_ == 0)
     return;
 
-  if (arena == nullptr) {
+  if (arena_ == nullptr) {
     size_ = 0;
     return;
   }
 
-  data_ = arena->makeData(size_ * darkside::getScalarTypeSize(scalar_type_));
+  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type_);
+
+  data_ = arena_->makeData(byte);
 
   if (data_ == nullptr)
     size_ = 0;
@@ -152,35 +158,41 @@ Storage::Storage(uint64_t size, ScalarType scalar_type, Arena *arena)
 Storage::Storage(const Storage &other)
     : size_(other.size_), scalar_type_(other.scalar_type_),
       arena_(other.arena_) {
+
   if (size_ == 0)
     return;
 
-  data_ = arena_->makeData(size_ * darkside::getScalarTypeSize(scalar_type_));
+  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type_);
+
+  data_ = arena_->makeData(byte);
 
   if (data_ == nullptr) {
     size_ = 0;
     return;
   }
 
-  Arena::copyData(data_, other.data_,
-                  size_ * darkside::getScalarTypeSize(scalar_type_),
+  Arena::copyData(data_, other.data_, byte,
                   DevicePair(arena_->getDevice(), arena_->getDevice()));
 }
 
 Storage::Storage(Storage &&other) noexcept
     : data_(other.data_), size_(other.size_), scalar_type_(other.scalar_type_),
       arena_(other.arena_) {
-  data_ = nullptr;
-  size_ = 0;
+
+  other.data_ = nullptr;
+  other.size_ = 0;
 }
 
 Storage::~Storage() {
   if (size_ == 0)
     return;
 
-  if ((uint8_t *)data_ + size_ * darkside::getScalarTypeSize(scalar_type_) ==
-      (uint8_t *)arena_->getData() + arena_->getOffset())
-    arena_->freeData(size_ * darkside::getScalarTypeSize(scalar_type_));
+  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type_);
+
+  uint8_t *tail = (uint8_t *)arena_->getData() + arena_->getOffset();
+
+  if ((uint8_t *)data_ + byte == tail)
+    arena_->freeData(byte);
 
   data_ = nullptr;
   size_ = 0;
@@ -190,13 +202,14 @@ Storage &Storage::operator=(const Storage &other) {
   if (this == &other)
     return *this;
 
-  void *new_data = nullptr;
-  uint64_t size = other.size_ * darkside::getScalarTypeSize(other.scalar_type_);
+  uint64_t byte = other.size_ * darkside::getScalarTypeSize(other.scalar_type_);
 
-  if (other.arena_ && size > 0)
-    new_data = other.arena_->makeData(size);
+  void *data = nullptr;
 
-  if (size > 0 && new_data == nullptr)
+  if (other.arena_ && byte > 0)
+    data = other.arena_->makeData(byte);
+
+  if (byte > 0 && data == nullptr)
     return *this;
 
   this->~Storage();
@@ -204,10 +217,10 @@ Storage &Storage::operator=(const Storage &other) {
   arena_ = other.arena_;
   size_ = other.size_;
   scalar_type_ = other.scalar_type_;
-  data_ = new_data;
+  data_ = data;
 
   if (data_) {
-    Arena::copyData(data_, other.data_, size,
+    Arena::copyData(data_, other.data_, byte,
                     DevicePair(other.arena_->getDevice(), arena_->getDevice()));
   }
 
@@ -233,7 +246,7 @@ Storage &Storage::operator=(Storage &&other) noexcept {
 
 void *Storage::getData() { return data_; }
 uint64_t Storage::getSize() const { return size_; }
-ScalarType Storage::getScalarType() const { return scalar_type_; };
+ScalarType Storage::getScalarType() const { return scalar_type_; }
 Arena *Storage::getArena() const { return arena_; }
 
 void Storage::setArena(Arena *arena) {
@@ -245,30 +258,34 @@ void Storage::setArena(Arena *arena) {
   if (arena == nullptr)
     return;
 
-  uint64_t size = size_ * darkside::getScalarTypeSize(scalar_type_);
+  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type_);
 
-  void *new_data = arena->makeData(size);
-  if (new_data == nullptr)
+  void *data = arena->makeData(byte);
+
+  if (data == nullptr)
     return;
 
-  if (data_ != nullptr && arena_ != nullptr)
-    Arena::copyData(new_data, data_, size,
+  if (data_ && arena_) {
+    Arena::copyData(data, data_, byte,
                     DevicePair(arena_->getDevice(), arena->getDevice()));
+  }
 
-  if ((uint8_t *)data_ + size ==
-      (uint8_t *)arena_->getData() + arena_->getOffset())
-    arena_->freeData(size);
+  uint8_t *tail = (uint8_t *)arena_->getData() + arena_->getOffset();
 
-  data_ = new_data;
+  if ((uint8_t *)data_ + byte == tail)
+    arena_->freeData(byte);
+
+  data_ = data;
   arena_ = arena;
 }
 
 #define TARGET_DISPATCH(cpp_type, scalar_type)                                 \
   case scalar_type: {                                                          \
-    using new_cpp_type =                                                       \
+    using new_type =                                                           \
         typename darkside::ScalarTypeToCPPType<scalar_type>::getType;          \
-    darkside::convertDataType<cpp_type, new_cpp_type>(data_, new_data, size_,  \
-                                                      arena_);                 \
+                                                                               \
+    darkside::convertDataType<cpp_type, new_type>(data_, new_data, size_,      \
+                                                  arena_);                     \
     break;                                                                     \
   }
 
@@ -293,119 +310,82 @@ void Storage::setScalarType(ScalarType scalar_type) {
   if (arena_ == nullptr)
     return;
 
-  uint64_t new_elem_size = darkside::getScalarTypeSize(scalar_type);
-  void *new_data = arena_->makeData(size_ * new_elem_size);
+  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type);
+
+  void *new_data = arena_->makeData(byte);
 
   if (new_data == nullptr)
     return;
 
+#define CONVERT_CASE(src_type, cpp_type)                                       \
+  case src_type: {                                                             \
+    using T = cpp_type;                                                        \
+                                                                               \
+    switch (scalar_type) {                                                     \
+      CONVERT_ALL(T)                                                           \
+    default:                                                                   \
+      break;                                                                   \
+    }                                                                          \
+                                                                               \
+    break;                                                                     \
+  }
+
   switch (scalar_type_) {
-  case ScalarType::INT_8: {
-    using T = int8_t;
-    switch (scalar_type) { CONVERT_ALL(T) default : break; }
-    break;
-  }
-  case ScalarType::INT_32: {
-    using T = int32_t;
-    switch (scalar_type) { CONVERT_ALL(T) default : break; }
-    break;
-  }
-  case ScalarType::INT_64: {
-    using T = int64_t;
-    switch (scalar_type) { CONVERT_ALL(T) default : break; }
-    break;
-  }
-  case ScalarType::FLOAT_32: {
-    using T = float;
-    switch (scalar_type) { CONVERT_ALL(T) default : break; }
-    break;
-  }
-  case ScalarType::FLOAT_64: {
-    using T = double;
-    switch (scalar_type) { CONVERT_ALL(T) default : break; }
-    break;
-  }
-  case ScalarType::UNSIGNED_INT_8: {
-    using T = uint8_t;
-    switch (scalar_type) { CONVERT_ALL(T) default : break; }
-    break;
-  }
-  case ScalarType::UNSIGNED_INT_32: {
-    using T = uint32_t;
-    switch (scalar_type) { CONVERT_ALL(T) default : break; }
-    break;
-  }
+    CONVERT_CASE(ScalarType::INT_8, int8_t)
+    CONVERT_CASE(ScalarType::INT_16, int16_t)
+    CONVERT_CASE(ScalarType::INT_32, int32_t)
+    CONVERT_CASE(ScalarType::INT_64, int64_t)
+
+    CONVERT_CASE(ScalarType::UNSIGNED_INT_8, uint8_t)
+    CONVERT_CASE(ScalarType::UNSIGNED_INT_16, uint16_t)
+    CONVERT_CASE(ScalarType::UNSIGNED_INT_32, uint32_t)
+    CONVERT_CASE(ScalarType::UNSIGNED_INT_64, uint64_t)
+
+    CONVERT_CASE(ScalarType::FLOAT_32, float)
+    CONVERT_CASE(ScalarType::FLOAT_64, double)
 
   default:
     break;
   }
 
-  uint64_t old_total_bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
-  if ((uint8_t *)data_ + old_total_bytes ==
-      (uint8_t *)arena_->getData() + arena_->getOffset()) {
-    arena_->freeData(old_total_bytes);
-  }
+#undef CONVERT_CASE
+#undef CONVERT_ALL
+#undef TARGET_DISPATCH
+
+  uint64_t old_byte = size_ * darkside::getScalarTypeSize(scalar_type_);
+
+  uint8_t *tail = (uint8_t *)arena_->getData() + arena_->getOffset();
+
+  if ((uint8_t *)data_ + old_byte == tail)
+    arena_->freeData(old_byte);
 
   data_ = new_data;
   scalar_type_ = scalar_type;
 }
 
-#define STORAGE_DISPATCH(scalar_type, action)                                  \
-  case ScalarType::INT_8: {                                                    \
-    using T = int8_t;                                                          \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::INT_16: {                                                   \
-    using T = int16_t;                                                         \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::INT_32: {                                                   \
-    using T = int32_t;                                                         \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::INT_64: {                                                   \
-    using T = int64_t;                                                         \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::FLOAT_32: {                                                 \
-    using T = float;                                                           \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::FLOAT_64: {                                                 \
-    using T = double;                                                          \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::UNSIGNED_INT_8: {                                           \
-    using T = uint8_t;                                                         \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::UNSIGNED_INT_16: {                                          \
-    using T = uint16_t;                                                        \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::UNSIGNED_INT_32: {                                          \
-    using T = uint32_t;                                                        \
-    action;                                                                    \
-    break;                                                                     \
-  }                                                                            \
-  case ScalarType::UNSIGNED_INT_64: {                                          \
-    using T = uint64_t;                                                        \
+#define CASE_DISPATCH(scalar_type, cpp_type, action)                           \
+  case scalar_type: {                                                          \
+    using T = cpp_type;                                                        \
     action;                                                                    \
     break;                                                                     \
   }
 
+#define STORAGE_DISPATCH(action)                                               \
+  CASE_DISPATCH(ScalarType::INT_8, int8_t, action)                             \
+  CASE_DISPATCH(ScalarType::INT_16, int16_t, action)                           \
+  CASE_DISPATCH(ScalarType::INT_32, int32_t, action)                           \
+  CASE_DISPATCH(ScalarType::INT_64, int64_t, action)                           \
+  CASE_DISPATCH(ScalarType::UNSIGNED_INT_8, uint8_t, action)                   \
+  CASE_DISPATCH(ScalarType::UNSIGNED_INT_16, uint16_t, action)                 \
+  CASE_DISPATCH(ScalarType::UNSIGNED_INT_32, uint32_t, action)                 \
+  CASE_DISPATCH(ScalarType::UNSIGNED_INT_64, uint64_t, action)                 \
+  CASE_DISPATCH(ScalarType::FLOAT_32, float, action)                           \
+  CASE_DISPATCH(ScalarType::FLOAT_64, double, action)
+
 void Storage::fillData(const darkside::CPPValueToScalarValue &value) {
+
   switch (scalar_type_) {
     STORAGE_DISPATCH(
-        scalar_type_,
         darkside::fillData<T>(data_, size_, value.getValue<T>(), arena_))
   default:
     break;
@@ -414,10 +394,10 @@ void Storage::fillData(const darkside::CPPValueToScalarValue &value) {
 
 void Storage::fillIncreasedData(const darkside::CPPValueToScalarValue &start,
                                 const darkside::CPPValueToScalarValue &step) {
+
   switch (scalar_type_) {
-    STORAGE_DISPATCH(scalar_type_, darkside::fillIncreasedData<T>(
-                                       data_, size_, start.getValue<T>(),
-                                       step.getValue<T>(), arena_))
+    STORAGE_DISPATCH(darkside::fillIncreasedData<T>(
+        data_, size_, start.getValue<T>(), step.getValue<T>(), arena_))
   default:
     break;
   }
@@ -425,10 +405,10 @@ void Storage::fillIncreasedData(const darkside::CPPValueToScalarValue &start,
 
 void Storage::fillDecreasedData(const darkside::CPPValueToScalarValue &start,
                                 const darkside::CPPValueToScalarValue &step) {
+
   switch (scalar_type_) {
-    STORAGE_DISPATCH(scalar_type_, darkside::fillDecreasedData<T>(
-                                       data_, size_, start.getValue<T>(),
-                                       step.getValue<T>(), arena_))
+    STORAGE_DISPATCH(darkside::fillDecreasedData<T>(
+        data_, size_, start.getValue<T>(), step.getValue<T>(), arena_))
   default:
     break;
   }
@@ -437,9 +417,9 @@ void Storage::fillDecreasedData(const darkside::CPPValueToScalarValue &start,
 void Storage::fillOrderedData(const darkside::CPPValueToScalarValue &start,
                               const darkside::CPPValueToScalarValue &step,
                               OrderType order_type) {
+
   switch (scalar_type_) {
     STORAGE_DISPATCH(
-        scalar_type_,
         darkside::fillOrderedData<T>(data_, size_, start.getValue<T>(),
                                      step.getValue<int>(), order_type, arena_))
   default:
@@ -448,4 +428,5 @@ void Storage::fillOrderedData(const darkside::CPPValueToScalarValue &start,
 }
 
 #undef STORAGE_DISPATCH
+#undef CASE_DISPATCH
 } // namespace startorch

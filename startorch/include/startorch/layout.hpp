@@ -36,6 +36,6 @@ public:
   const Storage &getOrder() const;
   const Storage &getStrides() const;
   const Storage &getOffsets() const;
-  uint64_t getIndex() const;
+  uint64_t getIndex(const Storage &indices) const;
 };
 } // namespace startorch
