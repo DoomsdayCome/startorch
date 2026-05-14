@@ -3,96 +3,48 @@
 #include "startorch/common.hpp"
 
 #include <cstdint>
-#include <type_traits>
+#include <variant>
 
 namespace darkside {
 template <typename T> struct CPPTypeToScalarType;
 
-#define CPP_TO_SCALAR(cpp_type, scalar_type)                                   \
-  template <> struct CPPTypeToScalarType<cpp_type> {                           \
-    static constexpr startorch::ScalarType getType = scalar_type;              \
+#define CPP_TYPE_TO_SCALAR_TYPE(cpp_type, scalar_type)                                                                                                         \
+  template <> struct CPPTypeToScalarType<cpp_type> {                                                                                                           \
+    static constexpr startorch::ScalarType getType = scalar_type;                                                                                              \
   };
 
-CPP_TO_SCALAR(int8_t, startorch::ScalarType::INT_8);
-CPP_TO_SCALAR(int16_t, startorch::ScalarType::INT_16);
-CPP_TO_SCALAR(int32_t, startorch::ScalarType::INT_32);
-CPP_TO_SCALAR(int64_t, startorch::ScalarType::INT_64);
-CPP_TO_SCALAR(float, startorch::ScalarType::FLOAT_32);
-CPP_TO_SCALAR(double, startorch::ScalarType::INT_64);
-CPP_TO_SCALAR(uint8_t, startorch::ScalarType::UNSIGNED_INT_8);
-CPP_TO_SCALAR(uint16_t, startorch::ScalarType::UNSIGNED_INT_16);
-CPP_TO_SCALAR(uint32_t, startorch::ScalarType::UNSIGNED_INT_32);
-CPP_TO_SCALAR(uint64_t, startorch::ScalarType::UNSIGNED_INT_64);
+CPP_TYPE_TO_SCALAR_TYPE(int8_t, startorch::ScalarType::INT_8);
+CPP_TYPE_TO_SCALAR_TYPE(int16_t, startorch::ScalarType::INT_16);
+CPP_TYPE_TO_SCALAR_TYPE(int32_t, startorch::ScalarType::INT_32);
+CPP_TYPE_TO_SCALAR_TYPE(int64_t, startorch::ScalarType::INT_64);
+CPP_TYPE_TO_SCALAR_TYPE(float, startorch::ScalarType::FLOAT_32);
+CPP_TYPE_TO_SCALAR_TYPE(double, startorch::ScalarType::INT_64);
+CPP_TYPE_TO_SCALAR_TYPE(uint8_t, startorch::ScalarType::UNSIGNED_INT_8);
+CPP_TYPE_TO_SCALAR_TYPE(uint16_t, startorch::ScalarType::UNSIGNED_INT_16);
+CPP_TYPE_TO_SCALAR_TYPE(uint32_t, startorch::ScalarType::UNSIGNED_INT_32);
+CPP_TYPE_TO_SCALAR_TYPE(uint64_t, startorch::ScalarType::UNSIGNED_INT_64);
 
-#undef CPP_TO_SCALAR
+#undef CPP_TYPE_TO_SCALAR_TYPE
 
 template <startorch::ScalarType S> struct ScalarTypeToCPPType;
 
-#define SCALAR_TO_CPP(scalar_type, cpp_type)                                   \
-  template <> struct ScalarTypeToCPPType<scalar_type> {                        \
-    using getType = cpp_type;                                                  \
+#define SCALAR_TYPE_TO_CPP_TYPE(scalar_type, cpp_type)                                                                                                         \
+  template <> struct ScalarTypeToCPPType<scalar_type> {                                                                                                        \
+    using getType = cpp_type;                                                                                                                                  \
   };
 
-SCALAR_TO_CPP(startorch::ScalarType::INT_8, int8_t);
-SCALAR_TO_CPP(startorch::ScalarType::INT_16, int16_t);
-SCALAR_TO_CPP(startorch::ScalarType::INT_32, int32_t);
-SCALAR_TO_CPP(startorch::ScalarType::INT_64, int64_t);
-SCALAR_TO_CPP(startorch::ScalarType::FLOAT_32, float);
-SCALAR_TO_CPP(startorch::ScalarType::FLOAT_64, double);
-SCALAR_TO_CPP(startorch::ScalarType::UNSIGNED_INT_8, uint8_t);
-SCALAR_TO_CPP(startorch::ScalarType::UNSIGNED_INT_16, uint16_t);
-SCALAR_TO_CPP(startorch::ScalarType::UNSIGNED_INT_32, uint32_t);
-SCALAR_TO_CPP(startorch::ScalarType::UNSIGNED_INT_64, uint64_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_8, int8_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_16, int16_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_32, int32_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_64, int64_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::FLOAT_32, float);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::FLOAT_64, double);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_8, uint8_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_16, uint16_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_32, uint32_t);
+SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_64, uint64_t);
 
-#undef SCALAR_TO_CPP
-
-class CPPValueToScalarValue {
-private:
-  startorch::ScalarType scalar_type_ = startorch::ScalarType::UNSIGNED_INT_64;
-
-  union {
-    int64_t i_;
-    double d_;
-    uint64_t u_{0};
-  };
-
-public:
-  CPPValueToScalarValue() = default;
-
-  template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-  CPPValueToScalarValue(T v) {
-    if constexpr (std::is_signed_v<T>) {
-      scalar_type_ = startorch::ScalarType::INT_64;
-      i_ = static_cast<int64_t>(v);
-    } else {
-      scalar_type_ = startorch::ScalarType::UNSIGNED_INT_64;
-      u_ = static_cast<uint64_t>(v);
-    }
-  }
-
-  CPPValueToScalarValue(double v) {
-    scalar_type_ = startorch::ScalarType::FLOAT_64;
-    d_ = v;
-  }
-
-  template <typename T> T getValue() const {
-    switch (scalar_type_) {
-    case startorch::ScalarType::INT_64:
-      return static_cast<T>(i_);
-
-    case startorch::ScalarType::UNSIGNED_INT_64:
-      return static_cast<T>(u_);
-
-    case startorch::ScalarType::FLOAT_64:
-      return static_cast<T>(d_);
-
-    default:
-      return static_cast<T>(u_);
-    }
-  }
-
-  startorch::ScalarType getScalarType() const { return scalar_type_; }
-};
+#undef SCALAR_TYPE_TO_CPP_TYPE
 
 inline constexpr uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
   switch (scalar_type) {
@@ -123,3 +75,40 @@ inline constexpr uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
   }
 }
 } // namespace darkside
+
+namespace startorch {
+using ElementVariant = std::variant<int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t, uint32_t, uint64_t, float, double, void *>;
+
+class Element {
+private:
+  ElementVariant data_ = nullptr;
+  startorch::ScalarType scalar_type_ = startorch::ScalarType::UNKNOWN_SCALAR;
+
+public:
+  Element() = default;
+
+  Element(int8_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_8) {}
+  Element(int16_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_16) {}
+  Element(int32_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_32) {}
+  Element(int64_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_64) {}
+  Element(float data) : data_(data), scalar_type_(startorch::ScalarType::FLOAT_32) {}
+  Element(double data) : data_(data), scalar_type_(startorch::ScalarType::FLOAT_64) {}
+  Element(uint8_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_8) {}
+  Element(uint16_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_16) {}
+  Element(uint32_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_32) {}
+  Element(uint64_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_64) {}
+
+  Element(const Element &other) = default;
+  Element(Element &&other) noexcept = default;
+
+  ~Element() = default;
+
+  Element &operator=(const Element &other) = default;
+  Element &operator=(Element &&other) noexcept = default;
+
+  template <typename T> T getData() const { return static_cast<T>(data_); };
+
+  ElementVariant getData() const { return data_; }
+  startorch::ScalarType getScalarType() const { return scalar_type_; }
+};
+} // namespace startorch

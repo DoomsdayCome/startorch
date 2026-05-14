@@ -28,6 +28,7 @@ public:
   Arena &operator=(Arena &&other) noexcept = delete;
 
   void *getData();
+  const void *getData() const;
   uint64_t getSize() const;
   uint64_t getOffset() const;
   MemoryType getMemoryType() const;
@@ -37,15 +38,14 @@ public:
   void freeData(uint64_t size);
   void wipeData();
 
-  static void copyData(void *destination, const void *source, uint64_t size,
-                       const DevicePair &device_pair);
+  static void copyData(void *destination, const void *source, uint64_t size, const DevicePair &device_pair);
 };
 
 class Storage {
 private:
   void *data_ = nullptr;
   uint64_t size_ = 0;
-  ScalarType scalar_type_ = ScalarType::UNSIGNED_INT_8;
+  ScalarType scalar_type_ = ScalarType::UNKNOWN_SCALAR;
   Arena *arena_ = nullptr;
 
 public:
@@ -60,21 +60,17 @@ public:
   Storage &operator=(const Storage &other);
   Storage &operator=(Storage &&other) noexcept;
 
+  template <typename T> T *getData() { return (T *)data_; };
+  template <typename T> const T *getData() const { return (T *)data_; };
+
   void *getData();
+  const void *getData() const;
   uint64_t getSize() const;
   ScalarType getScalarType() const;
   Arena *getArena() const;
 
-  void setArena(Arena *arena);
-  void setScalarType(ScalarType scalar_type);
-
-  void fillData(const darkside::CPPValueToScalarValue &value);
-  void fillIncreasedData(const darkside::CPPValueToScalarValue &start,
-                         const darkside::CPPValueToScalarValue &step);
-  void fillDecreasedData(const darkside::CPPValueToScalarValue &start,
-                         const darkside::CPPValueToScalarValue &step);
-  void fillOrderedData(const darkside::CPPValueToScalarValue &start,
-                     const darkside::CPPValueToScalarValue &step,
-                     OrderType order_type);
+  void fillData(const Element &value);
+  void fillIncreasedData(const Element &start, const Element &step);
+  void fillDecreasedData(const Element &start, const Element &step);
 };
 } // namespace startorch

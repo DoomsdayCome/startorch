@@ -8,21 +8,15 @@
 namespace startorch {
 class Layout {
 private:
-  ScalarType scalar_type_ = ScalarType::UNSIGNED_INT_64;
-  Arena *arena_ = nullptr;
-  OrderType order_type_ = OrderType::ROW_MAJOR;
-  uint64_t size_ = 0;
-  Storage shape_ = Storage(size_, scalar_type_, arena_);
-  Storage order_ = Storage(size_, scalar_type_, arena_);
-  Storage strides_ = Storage(size_, scalar_type_, arena_);
-  Storage offsets_ = Storage(size_, scalar_type_, arena_);
+  Storage shape_ = Storage();
+  Storage order_ = Storage();
+  Storage strides_ = Storage();
+  Storage offsets_ = Storage();
 
 public:
   Layout() = default;
-  Layout(const Storage &shape, const Storage &order, const Storage &strides,
-         const Storage &offsets, Arena *arena);
-  Layout(const Storage &shape, OrderType order_type, const Storage &strides,
-         const Storage &offsets, Arena *arena);
+  Layout(const Storage &shape, const Storage &order, const Storage &strides, const Storage &offsets);
+  Layout(const Storage &shape, OrderType order_type, const Storage &strides, const Storage &offsets);
 
   Layout(const Layout &other) = default;
   Layout(Layout &&other) noexcept = default;
