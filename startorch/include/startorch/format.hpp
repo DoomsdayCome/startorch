@@ -2,6 +2,7 @@
 
 #include "startorch/common.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <variant>
 
@@ -74,29 +75,68 @@ inline constexpr uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
     return 0;
   }
 }
+
+template <typename F> decltype(auto) ScalarTypeToCPPTypeNameSpace(startorch::ScalarType scalar_type, F &&f) {
+  switch (scalar_type) {
+  case startorch::ScalarType::INT_8:
+    return f(int8_t{});
+
+  case startorch::ScalarType::INT_16:
+    return f(int16_t{});
+
+  case startorch::ScalarType::INT_32:
+    return f(int32_t{});
+
+  case startorch::ScalarType::INT_64:
+    return f(int64_t{});
+
+  case startorch::ScalarType::FLOAT_32:
+    return f(float{});
+
+  case startorch::ScalarType::FLOAT_64:
+    return f(double{});
+
+  case startorch::ScalarType::UNSIGNED_INT_8:
+    return f(uint8_t{});
+
+  case startorch::ScalarType::UNSIGNED_INT_16:
+    return f(uint16_t{});
+
+  case startorch::ScalarType::UNSIGNED_INT_32:
+    return f(uint32_t{});
+
+  case startorch::ScalarType::UNSIGNED_INT_64:
+    return f(uint64_t{});
+
+  default:
+    break;
+  }
+}
 } // namespace darkside
 
 namespace startorch {
-using ElementVariant = std::variant<int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t, uint32_t, uint64_t, float, double, void *>;
+using ElementVariant = std::variant<int8_t, int16_t, int32_t, int64_t, float, double, uint8_t, uint16_t, uint32_t, uint64_t>;
+using DataVariant = std::variant<int8_t *, int16_t *, int32_t *, int64_t *, float *, double *, uint8_t *, uint16_t *, uint32_t *, uint64_t *, std::nullptr_t>;
 
 class Element {
 private:
-  ElementVariant data_ = nullptr;
-  startorch::ScalarType scalar_type_ = startorch::ScalarType::UNKNOWN_SCALAR;
+  ElementVariant value_ = 0;
+  DataVariant data_ = nullptr;
+  ScalarType scalar_type_ = ScalarType::UNKNOWN_SCALAR;
 
 public:
   Element() = default;
 
-  Element(int8_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_8) {}
-  Element(int16_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_16) {}
-  Element(int32_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_32) {}
-  Element(int64_t data) : data_(data), scalar_type_(startorch::ScalarType::INT_64) {}
-  Element(float data) : data_(data), scalar_type_(startorch::ScalarType::FLOAT_32) {}
-  Element(double data) : data_(data), scalar_type_(startorch::ScalarType::FLOAT_64) {}
-  Element(uint8_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_8) {}
-  Element(uint16_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_16) {}
-  Element(uint32_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_32) {}
-  Element(uint64_t data) : data_(data), scalar_type_(startorch::ScalarType::UNSIGNED_INT_64) {}
+  Element(int8_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_8) { data_ = &std::get<int8_t>(value_); }
+  Element(int16_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_16) { data_ = &std::get<int16_t>(value_); }
+  Element(int32_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_32) { data_ = &std::get<int32_t>(value_); }
+  Element(int64_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_64) { data_ = &std::get<int64_t>(value_); }
+  Element(float value) : value_(value), scalar_type_(startorch::ScalarType::FLOAT_32) { data_ = &std::get<float>(value_); }
+  Element(double value) : value_(value), scalar_type_(startorch::ScalarType::FLOAT_64) { data_ = &std::get<double>(value_); }
+  Element(uint8_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_8) { data_ = &std::get<uint8_t>(value_); }
+  Element(uint16_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_16) { data_ = &std::get<uint16_t>(value_); }
+  Element(uint32_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_32) { data_ = &std::get<uint32_t>(value_); }
+  Element(uint64_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_64) { data_ = &std::get<int64_t>(value_); }
 
   Element(const Element &other) = default;
   Element(Element &&other) noexcept = default;
@@ -106,9 +146,12 @@ public:
   Element &operator=(const Element &other) = default;
   Element &operator=(Element &&other) noexcept = default;
 
-  template <typename T> T getData() const { return static_cast<T>(data_); };
+  template <typename T> T *getData() { return std::get<T *>(data_); }
 
-  ElementVariant getData() const { return data_; }
-  startorch::ScalarType getScalarType() const { return scalar_type_; }
+  template <typename T> const T *getData() const { return std::get<T *>(data_); }
+
+  const DataVariant getData() { return data_; }
+  DataVariant getData() const { return data_; }
+  ScalarType getScalarType() const { return scalar_type_; }
 };
 } // namespace startorch

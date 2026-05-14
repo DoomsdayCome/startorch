@@ -26,7 +26,7 @@ target_sources(startorch
     "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/device.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/memory.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/layout.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/tensor.cpp"
+    # "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/tensor.cpp"
     # "source/startorch/random.cpp"
     #
     "${CMAKE_CURRENT_SOURCE_DIR}/source/darkside/kernel.cu"
