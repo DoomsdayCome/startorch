@@ -110,9 +110,9 @@ uint64_t Layout::getIndex(const Storage &indices) const {
 
   uint64_t index = 0;
 
-  for (uint64_t i = 0; i < shape_.getSize(); i++) 
+  for (uint64_t i = 0; i < shape_.getSize(); i++)
     index += (indices.getData<uint64_t>()[i] + offsets_.getData<uint64_t>()[i]) * strides_.getData<uint64_t>()[i];
- 
+
   return index;
 }
 } // namespace startorch

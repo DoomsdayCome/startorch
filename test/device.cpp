@@ -23,8 +23,8 @@ TEST(DeviceTest, EqualityOperatorTest) {
   Device d2(CPU);
 
   EXPECT_TRUE(d0 == d1);
-  EXPECT_FALSE(d0 == d2); 
-  EXPECT_TRUE(d0 != d2);  
+  EXPECT_FALSE(d0 == d2);
+  EXPECT_TRUE(d0 != d2);
 }
 
 TEST(DevicePairTest, DefaultConstructorTest) {
