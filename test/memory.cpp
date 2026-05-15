@@ -4,8 +4,6 @@
 
 #include <cstdint>
 
-#include <cuda_runtime.h>
-
 #include <gtest/gtest.h>
 
 namespace startorch {
@@ -142,7 +140,7 @@ TEST(StorageTest, fillSequencedGPUTest) {
   Storage s0(5, ScalarType::INT_32, &GLOBAL_DEVICE_ARENA);
 
   s0.fillDecreasedData(10, 2);
-  cudaDeviceSynchronize();
+
   int32_t res[5] = {0};
 
   Arena::copyData(res, s0.getData(), sizeof(int32_t) * 5, DevicePair(GLOBAL_DEVICE_ARENA.getDevice(), GLOBAL_PINNED_ARENA.getDevice()));
