@@ -40,12 +40,12 @@ template <typename T> __global__ void fill_decreased_data_gpu(T *data, uint64_t 
   uint64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (idx < size)
-    data[idx] = start + (static_cast<T>(size - 1 - idx) * step);
+    data[idx] = start - (static_cast<T>(idx) * step);
 }
 
 template <typename T> void fill_decreased_data_cpu(T *data, uint64_t size, T start, T step) {
   for (uint64_t i = 0; i < size; i++)
-    data[i] = start + (static_cast<T>(size - 1 - i) * step);
+    data[i] = start - (static_cast<T>(i) * step);
 }
 
 template <typename T> void fillData(void *data, uint64_t size, T value, startorch::Arena *arena) {

@@ -5,6 +5,7 @@
 #include "startorch/format.hpp"
 
 #include <cstdint>
+#include <initializer_list>
 
 namespace startorch {
 class Arena {
@@ -34,12 +35,17 @@ public:
   MemoryType getMemoryType() const;
   const Device &getDevice() const;
 
+  void setSize(uint64_t size);
+
   void *makeData(uint64_t size);
   void freeData(uint64_t size);
   void wipeData();
 
   static void copyData(void *destination, const void *source, uint64_t size, const DevicePair &device_pair);
 };
+
+inline Arena GLOBAL_PINNED_ARENA = Arena(1_GiB, MemoryType::PINNED, Device(DeviceType::CPU));
+inline Arena GLOBAL_DEVICE_ARENA = Arena(1_GiB, MemoryType::DEVICE, Device(DeviceType::GPU));
 
 class Storage {
 private:
@@ -50,7 +56,8 @@ private:
 
 public:
   Storage() = default;
-  Storage(uint64_t size, ScalarType scalar_type, Arena *arena);
+  Storage(uint64_t size, ScalarType scalar_type, Arena *arena = &GLOBAL_PINNED_ARENA);
+  Storage(std::initializer_list<Element> data, Arena *arena = &GLOBAL_PINNED_ARENA);
 
   Storage(const Storage &other);
   Storage(Storage &&other) noexcept;

@@ -85,6 +85,69 @@ uint64_t Arena::getOffset() const { return offset_; }
 MemoryType Arena::getMemoryType() const { return memory_type_; }
 const Device &Arena::getDevice() const { return device_; }
 
+void Arena::setSize(uint64_t size) {
+  if (size == size_)
+    return;
+
+  void *new_data = nullptr;
+  if (size > 0) {
+    switch (memory_type_) {
+    case MemoryType::HOST:
+      new_data = new (std::nothrow) uint8_t[size];
+      break;
+
+    case MemoryType::DEVICE:
+      if (cudaMalloc(&new_data, size) != cudaSuccess)
+        new_data = nullptr;
+      break;
+
+    case MemoryType::PINNED:
+      if (cudaMallocHost(&new_data, size) != cudaSuccess)
+        new_data = nullptr;
+      break;
+
+    case MemoryType::UNIFIED:
+      if (cudaMallocManaged(&new_data, size) != cudaSuccess)
+        new_data = nullptr;
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  if (data_ && new_data) {
+    uint64_t copy_size = (size < size_) ? size : size_;
+    copyData(new_data, data_, copy_size, DevicePair(device_, device_));
+  }
+
+  if (data_) {
+    switch (memory_type_) {
+    case MemoryType::HOST:
+      delete[] (uint8_t *)data_;
+      break;
+
+    case MemoryType::PINNED:
+      cudaFreeHost(data_);
+      break;
+
+    case MemoryType::DEVICE:
+    case MemoryType::UNIFIED:
+      cudaFree(data_);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  data_ = new_data;
+  size_ = (data_ == nullptr && size > 0) ? 0 : size;
+
+  if (offset_ > size_)
+    offset_ = size_;
+}
+
 void *Arena::makeData(uint64_t size) {
   if (offset_ + size > size_)
     return nullptr;
@@ -106,7 +169,6 @@ void Arena::freeData(uint64_t size) {
 void Arena::wipeData() { offset_ = 0; }
 
 void Arena::copyData(void *destination, const void *source, uint64_t size, const DevicePair &device_pair) {
-
   if (!destination || !source || size == 0)
     return;
 
@@ -138,28 +200,66 @@ Storage::Storage(uint64_t size, ScalarType scalar_type, Arena *arena) : size_(si
     return;
   }
 
-  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type_);
+  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
 
-  data_ = arena_->makeData(byte);
+  data_ = arena_->makeData(bytes);
 
   if (data_ == nullptr)
     size_ = 0;
+}
+
+Storage::Storage(std::initializer_list<Element> data, Arena *arena) : arena_(arena) {
+  if (data.size() == 0 || arena_ == nullptr)
+    return;
+
+  size_ = data.size();
+  scalar_type_ = data.begin()->getScalarType();
+  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
+
+  data_ = arena_->makeData(bytes);
+
+  if (data_ == nullptr) {
+    size_ = 0;
+    scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+    arena_ = nullptr;
+    return;
+  }
+
+  darkside::ScalarTypeToCPPTypeNameSpace(scalar_type_, [&](auto temp) {
+    using T = decltype(temp);
+    uint64_t i = 0;
+
+    if (arena_->getDevice().getDeviceType() == DeviceType::CPU)
+      for (const auto &s : data)
+        ((T *)data_)[i++] = *s.getData<T>();
+    else {
+      Arena host_arena(bytes, MemoryType::HOST, DeviceType::CPU);
+      T *host_ptr = static_cast<T *>(host_arena.makeData(bytes));
+
+      if (host_ptr) {
+        for (const auto &s : data)
+          host_ptr[i++] = *s.getData<T>();
+
+        Arena::copyData(data_, host_ptr, bytes, DevicePair(host_arena.getDevice(), arena_->getDevice()));
+      }
+    }
+  });
 }
 
 Storage::Storage(const Storage &other) : size_(other.size_), scalar_type_(other.scalar_type_), arena_(other.arena_) {
   if (size_ == 0)
     return;
 
-  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type_);
+  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
 
-  data_ = arena_->makeData(byte);
+  data_ = arena_->makeData(bytes);
 
   if (data_ == nullptr) {
     size_ = 0;
     return;
   }
 
-  Arena::copyData(data_, other.data_, byte, DevicePair(arena_->getDevice(), arena_->getDevice()));
+  Arena::copyData(data_, other.data_, bytes, DevicePair(arena_->getDevice(), arena_->getDevice()));
 }
 
 Storage::Storage(Storage &&other) noexcept : data_(other.data_), size_(other.size_), scalar_type_(other.scalar_type_), arena_(other.arena_) {
@@ -171,12 +271,12 @@ Storage::~Storage() {
   if (size_ == 0)
     return;
 
-  uint64_t byte = size_ * darkside::getScalarTypeSize(scalar_type_);
+  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
 
   uint8_t *tail = (uint8_t *)arena_->getData() + arena_->getOffset();
 
-  if ((uint8_t *)data_ + byte == tail)
-    arena_->freeData(byte);
+  if ((uint8_t *)data_ + bytes == tail)
+    arena_->freeData(bytes);
 
   data_ = nullptr;
   size_ = 0;
@@ -186,14 +286,14 @@ Storage &Storage::operator=(const Storage &other) {
   if (this == &other)
     return *this;
 
-  uint64_t byte = other.size_ * darkside::getScalarTypeSize(other.scalar_type_);
+  uint64_t bytes = other.size_ * darkside::getScalarTypeSize(other.scalar_type_);
 
   void *data = nullptr;
 
-  if (other.arena_ && byte > 0)
-    data = other.arena_->makeData(byte);
+  if (other.arena_ && bytes > 0)
+    data = other.arena_->makeData(bytes);
 
-  if (byte > 0 && data == nullptr)
+  if (bytes > 0 && data == nullptr)
     return *this;
 
   this->~Storage();
@@ -203,9 +303,8 @@ Storage &Storage::operator=(const Storage &other) {
   scalar_type_ = other.scalar_type_;
   data_ = data;
 
-  if (data_) {
-    Arena::copyData(data_, other.data_, byte, DevicePair(other.arena_->getDevice(), arena_->getDevice()));
-  }
+  if (data_)
+    Arena::copyData(data_, other.data_, bytes, DevicePair(other.arena_->getDevice(), arena_->getDevice()));
 
   return *this;
 }
@@ -260,7 +359,7 @@ void Storage::fillDecreasedData(const Element &start, const Element &step) {
 
   darkside::ScalarTypeToCPPTypeNameSpace(scalar_type_, [&](auto temp) {
     using T = decltype(temp);
-    
+
     darkside::fillDecreasedData<T>(data_, size_, *start.getData<T>(), *step.getData<T>(), arena_);
   });
 }

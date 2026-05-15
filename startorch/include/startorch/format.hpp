@@ -2,7 +2,6 @@
 
 #include "startorch/common.hpp"
 
-#include <cstddef>
 #include <cstdint>
 #include <variant>
 
@@ -116,12 +115,11 @@ template <typename F> decltype(auto) ScalarTypeToCPPTypeNameSpace(startorch::Sca
 
 namespace startorch {
 using ElementVariant = std::variant<int8_t, int16_t, int32_t, int64_t, float, double, uint8_t, uint16_t, uint32_t, uint64_t>;
-using DataVariant = std::variant<int8_t *, int16_t *, int32_t *, int64_t *, float *, double *, uint8_t *, uint16_t *, uint32_t *, uint64_t *, std::nullptr_t>;
 
 class Element {
 private:
   ElementVariant value_ = 0;
-  DataVariant data_ = nullptr;
+  void *data_ = nullptr;
   ScalarType scalar_type_ = ScalarType::UNKNOWN_SCALAR;
 
 public:
@@ -146,12 +144,11 @@ public:
   Element &operator=(const Element &other) = default;
   Element &operator=(Element &&other) noexcept = default;
 
-  template <typename T> T *getData() { return std::get<T *>(data_); }
+  template <typename T> T *getData() { return (T *)data_; }
+  template <typename T> const T *getData() const { return (T *)data_; }
 
-  template <typename T> const T *getData() const { return std::get<T *>(data_); }
-
-  const DataVariant getData() { return data_; }
-  DataVariant getData() const { return data_; }
+  const void *getData() { return data_; }
+  void *getData() const { return data_; }
   ScalarType getScalarType() const { return scalar_type_; }
 };
 } // namespace startorch
