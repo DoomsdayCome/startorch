@@ -42,7 +42,7 @@ Layout::Layout(const Storage &shape, const Storage &order, const Storage &stride
   else if (offsets.getSize() == size && offsets.getArena()->getDevice().getDeviceType() != DeviceType::CPU)
     arena = offsets.getArena();
   else
-    arena = &GLOBAL_PINNED_ARENA;
+    arena = &GLOBAL_CPU_ARENA;
 
   ScalarType scalar_type = ScalarType::UNKNOWN_SCALAR;
 
@@ -123,7 +123,7 @@ Layout::Layout(const Storage &shape, OrderType order_type, const Storage &stride
   else if (offsets.getSize() == size && offsets.getArena()->getDevice().getDeviceType() != DeviceType::CPU)
     arena = offsets.getArena();
   else
-    arena = &GLOBAL_PINNED_ARENA;
+    arena = &GLOBAL_GPU_ARENA;
 
   ScalarType scalar_type = ScalarType::UNKNOWN_SCALAR;
 

@@ -27,34 +27,7 @@ CPP_TYPE_TO_SCALAR_TYPE(uint64_t, startorch::ScalarType::UNSIGNED_INT_64);
 
 #undef CPP_TYPE_TO_SCALAR_TYPE
 
-inline constexpr uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
-  switch (scalar_type) {
-  case startorch::ScalarType::INT_8:
-  case startorch::ScalarType::UNSIGNED_INT_8:
-    return 1;
-
-  case startorch::ScalarType::INT_16:
-  case startorch::ScalarType::UNSIGNED_INT_16:
-    return 2;
-
-  case startorch::ScalarType::INT_32:
-  case startorch::ScalarType::UNSIGNED_INT_32:
-    return 4;
-
-  case startorch::ScalarType::INT_64:
-  case startorch::ScalarType::UNSIGNED_INT_64:
-    return 8;
-
-  case startorch::ScalarType::FLOAT_32:
-    return sizeof(float);
-
-  case startorch::ScalarType::FLOAT_64:
-    return sizeof(double);
-
-  default:
-    return 0;
-  }
-}
+uint64_t getScalarTypeSize(startorch::ScalarType scalar_type);
 
 template <typename F> decltype(auto) ScalarTypeToCPPType(startorch::ScalarType scalar_type, F &&f) {
   switch (scalar_type) {
@@ -116,7 +89,7 @@ public:
   Element(uint8_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_8) { data_ = &std::get<uint8_t>(value_); }
   Element(uint16_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_16) { data_ = &std::get<uint16_t>(value_); }
   Element(uint32_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_32) { data_ = &std::get<uint32_t>(value_); }
-  Element(uint64_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_64) { data_ = &std::get<int64_t>(value_); }
+  Element(uint64_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_64) { data_ = &std::get<uint64_t>(value_); }
 
   Element(const Element &other) = default;
   Element(Element &&other) noexcept = default;

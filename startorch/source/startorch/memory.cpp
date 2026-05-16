@@ -5,14 +5,70 @@
 
 #include "darkside/kernel.cuh"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <new>
 
 #include <cuda_runtime.h>
 
+namespace darkside {
+uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
+  switch (scalar_type) {
+  case startorch::ScalarType::UNKNOWN_SCALAR:
+    return 0;
+
+    // case startorch::ScalarType::FLOAT_8:
+    //   return 1;
+    //
+    // case startorch::ScalarType::FLOAT_16:
+    //   return 2;
+
+  case startorch::ScalarType::FLOAT_32:
+    return sizeof(float);
+
+  case startorch::ScalarType::FLOAT_64:
+    return sizeof(double);
+
+  case startorch::ScalarType::INT_8:
+    return sizeof(int8_t);
+
+  case startorch::ScalarType::INT_16:
+    return sizeof(int16_t);
+
+  case startorch::ScalarType::INT_32:
+    return sizeof(int32_t);
+
+  case startorch::ScalarType::INT_64:
+    return sizeof(int64_t);
+
+  case startorch::ScalarType::UNSIGNED_INT_8:
+    return sizeof(uint8_t);
+
+  case startorch::ScalarType::UNSIGNED_INT_16:
+    return sizeof(uint16_t);
+
+  case startorch::ScalarType::UNSIGNED_INT_32:
+    return sizeof(uint32_t);
+
+  case startorch::ScalarType::UNSIGNED_INT_64:
+    return sizeof(uint64_t);
+
+  default:
+    return 0;
+  }
+}
+} // namespace darkside
+
 namespace startorch {
-Arena::Arena(uint64_t size, MemoryType memory_type, const Device &device) : size_(size), memory_type_(memory_type), device_(device), data_(nullptr) {
+Arena::Arena(uint64_t size, MemoryType memory_type, const Device &device) {
+  if (size == 0 || memory_type == MemoryType::UNKNOWN_MEMORY || device.getDeviceType() == DeviceType::UNKNOWN_DEVICE)
+    return;
+
+  size_ = size;
+  memory_type_ = memory_type;
+  device_ = device;
+
   if (device_.getDeviceType() == DeviceType::CPU) {
     if (memory_type_ == MemoryType::DEVICE || memory_type_ == MemoryType::UNIFIED)
       memory_type_ = MemoryType::HOST;
@@ -20,9 +76,6 @@ Arena::Arena(uint64_t size, MemoryType memory_type, const Device &device) : size
     if (memory_type_ == MemoryType::HOST || memory_type_ == MemoryType::PINNED)
       memory_type_ = MemoryType::DEVICE;
   }
-
-  if (size_ == 0)
-    return;
 
   switch (memory_type_) {
   case MemoryType::HOST:
@@ -48,8 +101,11 @@ Arena::Arena(uint64_t size, MemoryType memory_type, const Device &device) : size
     break;
   }
 
-  if (data_ == nullptr)
+  if (data_ == nullptr) {
     size_ = 0;
+    offset_ = 0;
+    device_ = Device();
+  }
 }
 
 Arena::~Arena() {
@@ -191,21 +247,44 @@ void Arena::copyData(void *destination, const void *source, uint64_t size, const
   cudaMemcpy(destination, source, size, kind);
 }
 
-Storage::Storage(uint64_t size, ScalarType scalar_type, Arena *arena) : size_(size), scalar_type_(scalar_type), arena_(arena) {
-  if (size_ == 0)
+Storage::Storage(uint64_t size, ScalarType scalar_type, Arena *arena) {
+  if (size == 0 || arena == nullptr || scalar_type == ScalarType::UNKNOWN_SCALAR)
     return;
 
-  if (arena_ == nullptr) {
-    size_ = 0;
-    return;
-  }
+  size_ = size;
+  scalar_type_ = scalar_type;
+  arena_ = arena;
 
   uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
 
   data_ = arena_->makeData(bytes);
 
-  if (data_ == nullptr)
+  if (data_ == nullptr) {
     size_ = 0;
+    arena_ = nullptr;
+    scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  }
+}
+
+Storage::Storage(std::initializer_list<Element> data, Arena *arena) {
+  if (data.size() == 0 || arena == nullptr)
+    return;
+
+  size_ = data.size();
+  arena_ = arena;
+
+  for (auto e : data)
+    scalar_type_ = std::max(scalar_type_, e.getScalarType());
+
+  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
+
+  data_ = arena_->makeData(bytes);
+
+  if (data_ == nullptr) {
+    size_ = 0;
+    arena_ = nullptr;
+    scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  }
 }
 
 Storage::Storage(const Storage &other) : size_(other.size_), scalar_type_(other.scalar_type_), arena_(other.arena_) {

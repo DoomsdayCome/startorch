@@ -5,7 +5,7 @@
 namespace startorch {
 class Device {
 private:
-  DeviceType device_type_ = DeviceType::CPU;
+  DeviceType device_type_ = DeviceType::UNKNOWN_DEVICE;
 
 public:
   Device() = default;
