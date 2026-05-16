@@ -6,7 +6,8 @@
 
 #include <cstdint>
 #include <cstring>
-#include <cuda_runtime_api.h>
+
+#include <cuda_runtime.h>
 
 namespace darkside {
 template <typename T> __global__ void fill_data_gpu(T *data, uint64_t size, T value) {
