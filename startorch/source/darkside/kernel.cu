@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <cuda_runtime_api.h>
 
 namespace darkside {
 template <typename T> __global__ void fill_data_gpu(T *data, uint64_t size, T value) {
@@ -48,14 +49,19 @@ template <typename T> void fill_decreased_data_cpu(T *data, uint64_t size, T sta
     data[i] = start - (static_cast<T>(i) * step);
 }
 
-template <typename T> void fillData(void *data, uint64_t size, T value, startorch::Arena *arena) {
+template <typename T> void fillData(T *data, uint64_t size, T value, startorch::Arena *arena) {
   switch (arena->getDevice().getDeviceType()) {
   case startorch::DeviceType::CPU:
-    fill_data_cpu<T>((T *)data, size, value);
+    fill_data_cpu<T>(data, size, value);
     break;
 
   case startorch::DeviceType::GPU:
-    fill_data_gpu<T><<<BLOCKS(size), THREADS>>>((T *)data, size, value);
+    if (value == 0) {
+      cudaMemset(data, value, size * sizeof(T));
+      return;
+    }
+
+    fill_data_gpu<T><<<BLOCKS(size), THREADS>>>(data, size, value);
     break;
 
   default:
@@ -63,14 +69,14 @@ template <typename T> void fillData(void *data, uint64_t size, T value, startorc
   }
 }
 
-template <typename T> void fillIncreasedData(void *data, uint64_t size, T start, T step, startorch::Arena *arena) {
+template <typename T> void fillIncreasedData(T *data, uint64_t size, T start, T step, startorch::Arena *arena) {
   switch (arena->getDevice().getDeviceType()) {
   case startorch::DeviceType::CPU:
-    fill_increased_data_cpu<T>((T *)data, size, start, step);
+    fill_increased_data_cpu<T>(data, size, start, step);
     break;
 
   case startorch::DeviceType::GPU:
-    fill_increased_data_gpu<T><<<BLOCKS(size), THREADS>>>((T *)data, size, start, step);
+    fill_increased_data_gpu<T><<<BLOCKS(size), THREADS>>>(data, size, start, step);
     break;
 
   default:
@@ -78,14 +84,14 @@ template <typename T> void fillIncreasedData(void *data, uint64_t size, T start,
   }
 }
 
-template <typename T> void fillDecreasedData(void *data, uint64_t size, T start, T step, startorch::Arena *arena) {
+template <typename T> void fillDecreasedData(T *data, uint64_t size, T start, T step, startorch::Arena *arena) {
   switch (arena->getDevice().getDeviceType()) {
   case startorch::DeviceType::CPU:
-    fill_decreased_data_cpu<T>((T *)data, size, start, step);
+    fill_decreased_data_cpu<T>(data, size, start, step);
     break;
 
   case startorch::DeviceType::GPU:
-    fill_decreased_data_gpu<T><<<BLOCKS(size), THREADS>>>((T *)data, size, start, step);
+    fill_decreased_data_gpu<T><<<BLOCKS(size), THREADS>>>(data, size, start, step);
     break;
 
   default:
@@ -96,15 +102,15 @@ template <typename T> void fillDecreasedData(void *data, uint64_t size, T start,
 #define INSTANTIATE(macro)                                                                                                                                     \
   macro(int8_t) macro(int16_t) macro(int32_t) macro(int64_t) macro(float) macro(double) macro(uint8_t) macro(uint16_t) macro(uint32_t) macro(uint64_t)
 
-#define INSTANTIATE_FILL(T) template void fillData<T>(void *, uint64_t, T, startorch::Arena *);
+#define INSTANTIATE_FILL(T) template void fillData<T>(T *, uint64_t, T, startorch::Arena *);
 INSTANTIATE(INSTANTIATE_FILL)
 #undef INSTANTIATE_FILL
 
-#define INSTANTIATE_INCREASED(T) template void fillIncreasedData<T>(void *, uint64_t, T, T, startorch::Arena *);
+#define INSTANTIATE_INCREASED(T) template void fillIncreasedData<T>(T *, uint64_t, T, T, startorch::Arena *);
 INSTANTIATE(INSTANTIATE_INCREASED)
 #undef INSTANTIATE_INCREASED
 
-#define INSTANTIATE_DECREASED(T) template void fillDecreasedData<T>(void *, uint64_t, T, T, startorch::Arena *);
+#define INSTANTIATE_DECREASED(T) template void fillDecreasedData<T>(T *, uint64_t, T, T, startorch::Arena *);
 INSTANTIATE(INSTANTIATE_DECREASED)
 #undef INSTANTIATE_DECREASED
 

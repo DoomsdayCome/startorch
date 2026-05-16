@@ -208,44 +208,6 @@ Storage::Storage(uint64_t size, ScalarType scalar_type, Arena *arena) : size_(si
     size_ = 0;
 }
 
-Storage::Storage(std::initializer_list<Element> data, Arena *arena) : arena_(arena) {
-  if (data.size() == 0 || arena_ == nullptr)
-    return;
-
-  size_ = data.size();
-  scalar_type_ = data.begin()->getScalarType();
-  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
-
-  data_ = arena_->makeData(bytes);
-
-  if (data_ == nullptr) {
-    size_ = 0;
-    scalar_type_ = ScalarType::UNKNOWN_SCALAR;
-    arena_ = nullptr;
-    return;
-  }
-
-  darkside::ScalarTypeToCPPTypeNameSpace(scalar_type_, [&](auto temp) {
-    using T = decltype(temp);
-    uint64_t i = 0;
-
-    if (arena_->getDevice().getDeviceType() == DeviceType::CPU)
-      for (const auto &s : data)
-        ((T *)data_)[i++] = *s.getData<T>();
-    else {
-      Arena host_arena(bytes, MemoryType::HOST, DeviceType::CPU);
-      T *host_ptr = static_cast<T *>(host_arena.makeData(bytes));
-
-      if (host_ptr) {
-        for (const auto &s : data)
-          host_ptr[i++] = *s.getData<T>();
-
-        Arena::copyData(data_, host_ptr, bytes, DevicePair(host_arena.getDevice(), arena_->getDevice()));
-      }
-    }
-  });
-}
-
 Storage::Storage(const Storage &other) : size_(other.size_), scalar_type_(other.scalar_type_), arena_(other.arena_) {
   if (size_ == 0)
     return;
@@ -327,6 +289,7 @@ Storage &Storage::operator=(Storage &&other) noexcept {
 }
 
 void *Storage::getData() { return data_; }
+const void *Storage::getData() const { return data_; }
 uint64_t Storage::getSize() const { return size_; }
 ScalarType Storage::getScalarType() const { return scalar_type_; }
 Arena *Storage::getArena() const { return arena_; }
@@ -335,21 +298,16 @@ void Storage::fillData(const Element &value) {
   if (size_ == 0)
     return;
 
-  darkside::ScalarTypeToCPPTypeNameSpace(scalar_type_, [&](auto temp) {
-    using T = decltype(temp);
-
-    darkside::fillData<T>(data_, size_, *value.getData<T>(), arena_);
-  });
+  darkside::ScalarTypeToCPPType(scalar_type_,
+                                [&]<typename T>(darkside::CPPTypeToScalarType<T>) { darkside::fillData<T>((T *)data_, size_, *value.getData<T>(), arena_); });
 }
 
 void Storage::fillIncreasedData(const Element &start, const Element &step) {
   if (size_ == 0)
     return;
 
-  darkside::ScalarTypeToCPPTypeNameSpace(scalar_type_, [&](auto temp) {
-    using T = decltype(temp);
-
-    darkside::fillIncreasedData<T>(data_, size_, *start.getData<T>(), *step.getData<T>(), arena_);
+  darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
+    darkside::fillIncreasedData<T>((T *)data_, size_, *start.getData<T>(), *step.getData<T>(), arena_);
   });
 }
 
@@ -357,10 +315,8 @@ void Storage::fillDecreasedData(const Element &start, const Element &step) {
   if (size_ == 0)
     return;
 
-  darkside::ScalarTypeToCPPTypeNameSpace(scalar_type_, [&](auto temp) {
-    using T = decltype(temp);
-
-    darkside::fillDecreasedData<T>(data_, size_, *start.getData<T>(), *step.getData<T>(), arena_);
+  darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
+    darkside::fillDecreasedData<T>((T *)data_, size_, *start.getData<T>(), *step.getData<T>(), arena_);
   });
 }
 } // namespace startorch

@@ -36,28 +36,28 @@ inline constexpr MemoryType UNIFIED = MemoryType::UNIFIED;
 
 enum class ScalarType : uint8_t {
   UNKNOWN_SCALAR = 0,
-  INT_8 = 1,
-  INT_16 = 2,
-  INT_32 = 3,
-  INT_64 = 4,
-  FLOAT_8 = 5,
-  FLOAT_16 = 6,
-  FLOAT_32 = 7,
-  FLOAT_64 = 8,
+  FLOAT_8 = 1,
+  FLOAT_16 = 2,
+  FLOAT_32 = 3,
+  FLOAT_64 = 4,
+  INT_8 = 5,
+  INT_16 = 6,
+  INT_32 = 7,
+  INT_64 = 8,
   UNSIGNED_INT_8 = 9,
   UNSIGNED_INT_16 = 10,
   UNSIGNED_INT_32 = 11,
   UNSIGNED_INT_64 = 12,
 };
 
-inline constexpr ScalarType INT_8 = ScalarType::INT_8;
-inline constexpr ScalarType INT_16 = ScalarType::INT_16;
-inline constexpr ScalarType INT_32 = ScalarType::INT_32;
-inline constexpr ScalarType INT_64 = ScalarType::INT_64;
 inline constexpr ScalarType FLOAT_8 = ScalarType::FLOAT_8;
 inline constexpr ScalarType FLOAT_16 = ScalarType::FLOAT_16;
 inline constexpr ScalarType FLOAT_32 = ScalarType::FLOAT_32;
 inline constexpr ScalarType FLOAT_64 = ScalarType::FLOAT_64;
+inline constexpr ScalarType INT_8 = ScalarType::INT_8;
+inline constexpr ScalarType INT_16 = ScalarType::INT_16;
+inline constexpr ScalarType INT_32 = ScalarType::INT_32;
+inline constexpr ScalarType INT_64 = ScalarType::INT_64;
 inline constexpr ScalarType UNSIGNED_INT_8 = ScalarType::UNSIGNED_INT_8;
 inline constexpr ScalarType UNSIGNED_INT_16 = ScalarType::UNSIGNED_INT_16;
 inline constexpr ScalarType UNSIGNED_INT_32 = ScalarType::UNSIGNED_INT_32;

@@ -8,43 +8,24 @@
 namespace darkside {
 template <typename T> struct CPPTypeToScalarType;
 
-#define CPP_TYPE_TO_SCALAR_TYPE(cpp_type, scalar_type)                                                                                                         \
-  template <> struct CPPTypeToScalarType<cpp_type> {                                                                                                           \
-    static constexpr startorch::ScalarType getType = scalar_type;                                                                                              \
+#define CPP_TYPE_TO_SCALAR_TYPE(T, N)                                                                                                                          \
+  template <> struct CPPTypeToScalarType<T> {                                                                                                                  \
+    static constexpr startorch::ScalarType getType = N;                                                                                                        \
   };
 
+CPP_TYPE_TO_SCALAR_TYPE(void, startorch::ScalarType::UNKNOWN_SCALAR);
+CPP_TYPE_TO_SCALAR_TYPE(float, startorch::ScalarType::FLOAT_32);
+CPP_TYPE_TO_SCALAR_TYPE(double, startorch::ScalarType::FLOAT_64);
 CPP_TYPE_TO_SCALAR_TYPE(int8_t, startorch::ScalarType::INT_8);
 CPP_TYPE_TO_SCALAR_TYPE(int16_t, startorch::ScalarType::INT_16);
 CPP_TYPE_TO_SCALAR_TYPE(int32_t, startorch::ScalarType::INT_32);
 CPP_TYPE_TO_SCALAR_TYPE(int64_t, startorch::ScalarType::INT_64);
-CPP_TYPE_TO_SCALAR_TYPE(float, startorch::ScalarType::FLOAT_32);
-CPP_TYPE_TO_SCALAR_TYPE(double, startorch::ScalarType::INT_64);
 CPP_TYPE_TO_SCALAR_TYPE(uint8_t, startorch::ScalarType::UNSIGNED_INT_8);
 CPP_TYPE_TO_SCALAR_TYPE(uint16_t, startorch::ScalarType::UNSIGNED_INT_16);
 CPP_TYPE_TO_SCALAR_TYPE(uint32_t, startorch::ScalarType::UNSIGNED_INT_32);
 CPP_TYPE_TO_SCALAR_TYPE(uint64_t, startorch::ScalarType::UNSIGNED_INT_64);
 
 #undef CPP_TYPE_TO_SCALAR_TYPE
-
-template <startorch::ScalarType S> struct ScalarTypeToCPPType;
-
-#define SCALAR_TYPE_TO_CPP_TYPE(scalar_type, cpp_type)                                                                                                         \
-  template <> struct ScalarTypeToCPPType<scalar_type> {                                                                                                        \
-    using getType = cpp_type;                                                                                                                                  \
-  };
-
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_8, int8_t);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_16, int16_t);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_32, int32_t);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::INT_64, int64_t);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::FLOAT_32, float);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::FLOAT_64, double);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_8, uint8_t);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_16, uint16_t);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_32, uint32_t);
-SCALAR_TYPE_TO_CPP_TYPE(startorch::ScalarType::UNSIGNED_INT_64, uint64_t);
-
-#undef SCALAR_TYPE_TO_CPP_TYPE
 
 inline constexpr uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
   switch (scalar_type) {
@@ -75,39 +56,40 @@ inline constexpr uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
   }
 }
 
-template <typename F> decltype(auto) ScalarTypeToCPPTypeNameSpace(startorch::ScalarType scalar_type, F &&f) {
+template <typename F> decltype(auto) ScalarTypeToCPPType(startorch::ScalarType scalar_type, F &&f) {
   switch (scalar_type) {
   case startorch::ScalarType::INT_8:
-    return f(int8_t{});
+    return f(CPPTypeToScalarType<int8_t>{});
 
   case startorch::ScalarType::INT_16:
-    return f(int16_t{});
+    return f(CPPTypeToScalarType<int16_t>{});
 
   case startorch::ScalarType::INT_32:
-    return f(int32_t{});
+    return f(CPPTypeToScalarType<int32_t>{});
 
   case startorch::ScalarType::INT_64:
-    return f(int64_t{});
+    return f(CPPTypeToScalarType<int64_t>{});
 
   case startorch::ScalarType::FLOAT_32:
-    return f(float{});
+    return f(CPPTypeToScalarType<float>{});
 
   case startorch::ScalarType::FLOAT_64:
-    return f(double{});
+    return f(CPPTypeToScalarType<double>{});
 
   case startorch::ScalarType::UNSIGNED_INT_8:
-    return f(uint8_t{});
+    return f(CPPTypeToScalarType<uint8_t>{});
 
   case startorch::ScalarType::UNSIGNED_INT_16:
-    return f(uint16_t{});
+    return f(CPPTypeToScalarType<uint16_t>{});
 
   case startorch::ScalarType::UNSIGNED_INT_32:
-    return f(uint32_t{});
+    return f(CPPTypeToScalarType<uint32_t>{});
 
   case startorch::ScalarType::UNSIGNED_INT_64:
-    return f(uint64_t{});
+    return f(CPPTypeToScalarType<uint64_t>{});
 
   default:
+    // return f(CPPTypeToScalarType<void>{});
     break;
   }
 }

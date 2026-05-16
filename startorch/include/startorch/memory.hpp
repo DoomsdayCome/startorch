@@ -5,7 +5,6 @@
 #include "startorch/format.hpp"
 
 #include <cstdint>
-#include <initializer_list>
 
 namespace startorch {
 class Arena {
@@ -56,8 +55,7 @@ private:
 
 public:
   Storage() = default;
-  Storage(uint64_t size, ScalarType scalar_type, Arena *arena = &GLOBAL_PINNED_ARENA);
-  Storage(std::initializer_list<Element> data, Arena *arena = &GLOBAL_PINNED_ARENA);
+  Storage(uint64_t size, ScalarType scalar_type, Arena *arena);
 
   Storage(const Storage &other);
   Storage(Storage &&other) noexcept;
