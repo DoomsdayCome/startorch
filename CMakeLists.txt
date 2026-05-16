@@ -6,6 +6,7 @@ find_package(GTest REQUIRED)
 add_executable(test
   "${CMAKE_CURRENT_SOURCE_DIR}/test/device.cpp" 
   "${CMAKE_CURRENT_SOURCE_DIR}/test/memory.cpp" 
+  # "${CMAKE_CURRENT_SOURCE_DIR}/test/layout.cpp" 
 )
 
 target_include_directories(test PRIVATE 
