@@ -14,8 +14,8 @@ inline constexpr uint64_t BLOCKS(uint64_t size) { return (size + THREADS - 1) / 
 namespace startorch {
 enum class DeviceType : uint8_t {
   UNKNOWN_DEVICE = 0,
-  CPU = 1,
-  GPU = 2,
+  GPU = 1,
+  CPU = 2,
 };
 
 inline constexpr DeviceType CPU = DeviceType::CPU;
@@ -23,10 +23,10 @@ inline constexpr DeviceType GPU = DeviceType::GPU;
 
 enum class MemoryType : uint8_t {
   UNKNOWN_MEMORY = 0,
-  HOST = 1,
-  DEVICE = 2,
-  PINNED = 3,
-  UNIFIED = 4,
+  DEVICE = 1,
+  UNIFIED = 2,
+  HOST = 3,
+  PINNED = 4,
 };
 
 inline constexpr MemoryType HOST = MemoryType::HOST;
@@ -78,8 +78,8 @@ inline constexpr LoggerType ERROR = LoggerType::ERROR;
 
 enum class OrderType : uint8_t {
   UNKNOWN_MAJOR = 0,
-  ROW_MAJOR = 1,
-  COLUMN_MAJOR = 2,
+  COLUMN_MAJOR = 1,
+  ROW_MAJOR = 2,
 };
 
 inline constexpr OrderType ROW_MAJOR = OrderType::ROW_MAJOR;

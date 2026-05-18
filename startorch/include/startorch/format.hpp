@@ -7,9 +7,9 @@
 namespace darkside {
 template <typename T> struct CPPTypeToScalarType;
 
-#define CPP_TYPE_TO_SCALAR_TYPE(T, N)                                                                                                                          \
+#define CPP_TYPE_TO_SCALAR_TYPE(T, S)                                                                                                                          \
   template <> struct CPPTypeToScalarType<T> {                                                                                                                  \
-    static constexpr startorch::ScalarType getType = N;                                                                                                        \
+    static constexpr startorch::ScalarType getScalarType = S;                                                                                                  \
   };
 
 CPP_TYPE_TO_SCALAR_TYPE(void, startorch::ScalarType::UNKNOWN_SCALAR);

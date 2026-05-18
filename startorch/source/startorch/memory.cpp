@@ -71,7 +71,7 @@ INSTANTIATE(INSTANTIATE_REFERENCE_ELEMENT)
     if (data_ == nullptr)                                                                                                                                      \
       return;                                                                                                                                                  \
                                                                                                                                                                \
-    DevicePair(device_, &AMD5625U).copyData(data_, &value, sizeof(T));                                                                                         \
+    DevicePair(device, &AMD5625U).copyData(data_, &value, sizeof(T));                                                                                         \
                                                                                                                                                                \
     device_ = device;                                                                                                                                          \
     scalar_type_ = S;                                                                                                                                          \
@@ -245,7 +245,7 @@ Storage::Storage(uint64_t size, ScalarType scalar_type, Device *device) {
   if (size == 0 || device == nullptr || scalar_type == ScalarType::UNKNOWN_SCALAR)
     return;
 
-  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type);
+  uint64_t bytes = size * darkside::getScalarTypeSize(scalar_type);
   data_ = device_->makeData(bytes);
 
   if (data_ == nullptr)
@@ -260,7 +260,7 @@ Storage::Storage(const Storage &other) {
   if (other.size_ == 0)
     return;
 
-  uint64_t bytes = size_ * darkside::getScalarTypeSize(other.scalar_type_);
+  uint64_t bytes = other.size_ * darkside::getScalarTypeSize(other.scalar_type_);
   data_ = other.device_->makeData(bytes);
 
   if (data_ == nullptr)
@@ -402,72 +402,85 @@ const Element Storage::operator[](uint64_t index) const {
 }
 
 void *Storage::getData() { return data_; }
-Device *Storage::getDevice() { return device_; }
 
 const void *Storage::getData() const { return data_; }
 uint64_t Storage::getSize() const { return size_; }
 ScalarType Storage::getScalarType() const { return scalar_type_; }
-const Device *Storage::getDevice() const { return device_; }
+Device *Storage::getDevice() const { return device_; }
 
 void Storage::fillData(const Element &value) {
-  if (size_ == 0 || data_ == nullptr)
+  if (size_ == 0)
     return;
 
   darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
-    T host_value;
+    Element value_host;
+    const Element *value_pointer;
 
-    if (value.getDevice()->getDeviceType() == DeviceType::CPU)
-      host_value = *value.getData<T>();
-    else
-      DevicePair(&AMD5625U, value.getDevice()).copyData(&host_value, value.getData(), sizeof(T));
-
-    darkside::fillData<T>(static_cast<T *>(data_), size_, host_value, device_);
+    if (value.getDevice()->getDeviceType() == DeviceType::CPU && value.getScalarType() == scalar_type_)
+      value_pointer = &value;
+    else {
+      value_host = element_cast<darkside::CPPTypeToScalarType<T>::getScalarType>(value, &AMD5625U);
+      value_pointer = &value_host;
+    }
+    darkside::fillData<T>(static_cast<T *>(data_), size_, *value_pointer->getData<T>(), device_);
   });
 }
 
 void Storage::fillIncreasedData(const Element &start, const Element &step) {
-  if (size_ == 0 || data_ == nullptr)
+  if (size_ == 0)
     return;
 
   darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
-    T host_start;
+    Element start_host;
+    const Element *start_pointer;
 
-    if (start.getDevice()->getDeviceType() == DeviceType::CPU)
-      host_start = *start.getData<T>();
-    else
-      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_start, start.getData(), sizeof(T));
+    if (start.getDevice()->getDeviceType() == DeviceType::CPU && start.getScalarType() == scalar_type_)
+      start_pointer = &start;
+    else {
+      start_host = element_cast<darkside::CPPTypeToScalarType<T>::getScalarType>(start, &AMD5625U);
+      start_pointer = &start_host;
+    }
 
-    T host_step;
+    Element step_host;
+    const Element *step_pointer;
 
-    if (step.getDevice()->getDeviceType() == DeviceType::CPU)
-      host_step = *step.getData<T>();
-    else
-      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_step, step.getData(), sizeof(T));
+    if (step.getDevice()->getDeviceType() == DeviceType::CPU && step.getScalarType() == scalar_type_)
+      step_pointer = &step;
+    else {
+      step_host = element_cast<darkside::CPPTypeToScalarType<T>::getScalarType>(step, &AMD5625U);
+      step_pointer = &step_host;
+    }
 
-    darkside::fillIncreasedData<T>(static_cast<T *>(data_), size_, host_start, host_step, device_);
+    darkside::fillIncreasedData<T>(static_cast<T *>(data_), size_, *start_pointer->getData<T>(), *step_pointer->getData<T>(), device_);
   });
 }
 
 void Storage::fillDecreasedData(const Element &start, const Element &step) {
-  if (size_ == 0 || data_ == nullptr)
+  if (size_ == 0)
     return;
 
   darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
-    T host_start;
+    Element start_host;
+    const Element *start_pointer;
 
-    if (start.getDevice()->getDeviceType() == DeviceType::CPU)
-      host_start = *start.getData<T>();
-    else
-      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_start, start.getData(), sizeof(T));
+    if (start.getDevice()->getDeviceType() == DeviceType::CPU && start.getScalarType() == scalar_type_)
+      start_pointer = &start;
+    else {
+      start_host = element_cast<darkside::CPPTypeToScalarType<T>::getScalarType>(start, &AMD5625U);
+      start_pointer = &start_host;
+    }
 
-    T host_step;
+    Element step_host;
+    const Element *step_pointer;
 
-    if (step.getDevice()->getDeviceType() == DeviceType::CPU)
-      host_step = *step.getData<T>();
-    else
-      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_step, step.getData(), sizeof(T));
+    if (step.getDevice()->getDeviceType() == DeviceType::CPU && step.getScalarType() == scalar_type_)
+      step_pointer = &step;
+    else {
+      step_host = element_cast<darkside::CPPTypeToScalarType<T>::getScalarType>(step, &AMD5625U);
+      step_pointer = &step_host;
+    }
 
-    darkside::fillDecreasedData<T>(static_cast<T *>(data_), size_, host_start, host_step, device_);
+    darkside::fillDecreasedData<T>(static_cast<T *>(data_), size_, *start_pointer->getData<T>(), *step_pointer->getData<T>(), device_);
   });
 }
 } // namespace startorch

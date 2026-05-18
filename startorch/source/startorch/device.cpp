@@ -8,7 +8,7 @@
 
 namespace startorch {
 Device::Device(uint64_t bytes, MemoryType memory_type, DeviceType device_type) {
-  if (bytes == 0 || memory_type == MemoryType::UNKNOWN_MEMORY || device_type_ == DeviceType::UNKNOWN_DEVICE)
+  if (bytes == 0 || memory_type == MemoryType::UNKNOWN_MEMORY || device_type == DeviceType::UNKNOWN_DEVICE)
     return;
 
   bytes_ = bytes;
@@ -98,7 +98,7 @@ uint64_t Device::getOffset() const { return offset_; }
 MemoryType Device::getMemoryType() const { return memory_type_; }
 DeviceType Device::getDeviceType() const { return device_type_; }
 
-void Device::setSize(uint64_t bytes) {
+void Device::setBytes(uint64_t bytes) {
   if (bytes_ == bytes)
     return;
 

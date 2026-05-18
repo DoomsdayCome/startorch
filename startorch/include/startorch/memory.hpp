@@ -6,7 +6,6 @@
 #include <cstdint>
 
 namespace startorch {
-
 class Element {
 private:
   void *data_ = nullptr;
@@ -28,16 +27,16 @@ public:
   Element(uint32_t *data, Device *device);
   Element(uint64_t *data, Device *device);
 
-  Element(float value, Device *device = &AMD5625U);
-  Element(double value, Device *device = &AMD5625U);
-  Element(int8_t value, Device *device = &AMD5625U);
-  Element(int16_t value, Device *device = &AMD5625U);
-  Element(int32_t value, Device *device = &AMD5625U);
-  Element(int64_t value, Device *device = &AMD5625U);
-  Element(uint8_t value, Device *device = &AMD5625U);
-  Element(uint16_t value, Device *device = &AMD5625U);
-  Element(uint32_t value, Device *device = &AMD5625U);
-  Element(uint64_t value, Device *device = &AMD5625U);
+  Element(float value, Device *device);
+  Element(double value, Device *device);
+  Element(int8_t value, Device *device);
+  Element(int16_t value, Device *device);
+  Element(int32_t value, Device *device);
+  Element(int64_t value, Device *device);
+  Element(uint8_t value, Device *device);
+  Element(uint16_t value, Device *device);
+  Element(uint32_t value, Device *device);
+  Element(uint64_t value, Device *device);
 
   Element(const Element &other);
   Element(Element &&other) noexcept;
@@ -57,7 +56,7 @@ public:
   OwnerType getOwnerType() const;
 };
 
-template <ScalarType S> Element element_cast(const Element &element, Device *device = &AMD5625U);
+template <ScalarType S> Element element_cast(const Element &element, Device *device);
 
 class Storage {
 private:
@@ -68,7 +67,7 @@ private:
 
 public:
   Storage() = default;
-  Storage(uint64_t size, ScalarType scalar_type, Device *device = &AMD5625U);
+  Storage(uint64_t size, ScalarType scalar_type, Device *device);
 
   Storage(const Storage &other);
   Storage(Storage &&other) noexcept;
@@ -85,12 +84,10 @@ public:
   template <typename T> const T *getData() const { return static_cast<T *>(data_); };
 
   void *getData();
-  Device *getDevice();
-
   const void *getData() const;
   uint64_t getSize() const;
   ScalarType getScalarType() const;
-  const Device *getDevice() const;
+  Device *getDevice() const;
 
   void fillData(const Element &value);
   void fillIncreasedData(const Element &start, const Element &step);

@@ -1,19 +1,22 @@
 cmake_minimum_required(VERSION 3.23)
-
 project(startorch LANGUAGES CXX CUDA)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED YES)
-
 set(CMAKE_CUDA_USE_RESPONSE_FILE_FOR_INCLUDES OFF)
 
 find_package(CUDAToolkit REQUIRED)
 
-add_library(startorch SHARED)
+add_library(startorch SHARED
+  source/startorch/device.cpp
+  source/startorch/memory.cpp
+  source/startorch/layout.cpp
+
+  source/darkside/kernel.cu
+)
 
 set_target_properties(startorch PROPERTIES
   LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/library"
@@ -21,27 +24,11 @@ set_target_properties(startorch PROPERTIES
   POSITION_INDEPENDENT_CODE ON
 )
 
-target_sources(startorch
-  PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/device.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/memory.cpp"
-    # "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/layout.cpp"
-    # "${CMAKE_CURRENT_SOURCE_DIR}/source/startorch/tensor.cpp"
-    # "source/startorch/random.cpp"
-    #
-    "${CMAKE_CURRENT_SOURCE_DIR}/source/darkside/kernel.cu"
-    # "source/darkside/memory.cu"
-    # "source/darkside/format.cpp"
-)
-
 target_include_directories(startorch
-  PUBLIC 
-    "${CMAKE_CURRENT_SOURCE_DIR}/include"
-  PRIVATE 
-    "${CUDAToolkit_INCLUDE_DIRS}"
+  PUBLIC  include
+  PRIVATE ${CUDAToolkit_INCLUDE_DIRS}
 )
 
 target_link_libraries(startorch
-  PRIVATE 
-    CUDA::cudart_static
+  PRIVATE CUDA::cudart_static
 )

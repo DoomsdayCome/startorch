@@ -30,14 +30,14 @@ public:
   MemoryType getMemoryType() const;
   DeviceType getDeviceType() const;
 
-  void setSize(uint64_t bytes);
+  void setBytes(uint64_t bytes);
 
   void *makeData(uint64_t bytes);
   void freeData(uint64_t bytes);
   void wipeData();
 };
 
-inline Device AMD5625U = Device(1_GiB, MemoryType::PINNED, DeviceType::CPU);
+inline Device AMD5625U = Device(1_GiB, MemoryType::HOST, DeviceType::CPU);
 inline Device NVD3050M = Device(1_GiB, MemoryType::DEVICE, DeviceType::GPU);
 
 class DevicePair {
