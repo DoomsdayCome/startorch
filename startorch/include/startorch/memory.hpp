@@ -2,62 +2,73 @@
 
 #include "startorch/common.hpp"
 #include "startorch/device.hpp"
-#include "startorch/format.hpp"
 
 #include <cstdint>
-#include <initializer_list>
 
 namespace startorch {
-class Arena {
+
+class Element {
 private:
   void *data_ = nullptr;
-  uint64_t size_ = 0;
-  uint64_t offset_ = 0;
-  MemoryType memory_type_ = MemoryType::UNKNOWN_MEMORY;
-  Device device_ = Device();
+  Device *device_ = nullptr;
+  ScalarType scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  OwnerType owner_type_ = OwnerType::UNKNOWN_OWNER;
 
 public:
-  Arena() = default;
-  Arena(uint64_t size, MemoryType memory_type, const Device &device);
+  Element() = default;
 
-  Arena(const Arena &other) = delete;
-  Arena(Arena &&other) noexcept = delete;
+  Element(float *data, Device *device);
+  Element(double *data, Device *device);
+  Element(int8_t *data, Device *device);
+  Element(int16_t *data, Device *device);
+  Element(int32_t *data, Device *device);
+  Element(int64_t *data, Device *device);
+  Element(uint8_t *data, Device *device);
+  Element(uint16_t *data, Device *device);
+  Element(uint32_t *data, Device *device);
+  Element(uint64_t *data, Device *device);
 
-  ~Arena();
+  Element(float value, Device *device = &AMD5625U);
+  Element(double value, Device *device = &AMD5625U);
+  Element(int8_t value, Device *device = &AMD5625U);
+  Element(int16_t value, Device *device = &AMD5625U);
+  Element(int32_t value, Device *device = &AMD5625U);
+  Element(int64_t value, Device *device = &AMD5625U);
+  Element(uint8_t value, Device *device = &AMD5625U);
+  Element(uint16_t value, Device *device = &AMD5625U);
+  Element(uint32_t value, Device *device = &AMD5625U);
+  Element(uint64_t value, Device *device = &AMD5625U);
 
-  Arena &operator=(const Arena &other) = delete;
-  Arena &operator=(Arena &&other) noexcept = delete;
+  Element(const Element &other);
+  Element(Element &&other) noexcept;
+
+  ~Element();
+
+  Element &operator=(const Element &other);
+  Element &operator=(Element &&other) noexcept;
+
+  template <typename T> T *getData() { return static_cast<T *>(data_); }
+  template <typename T> const T *getData() const { return static_cast<T *>(data_); }
 
   void *getData();
   const void *getData() const;
-  uint64_t getSize() const;
-  uint64_t getOffset() const;
-  MemoryType getMemoryType() const;
-  const Device &getDevice() const;
-
-  void setSize(uint64_t size);
-
-  void *makeData(uint64_t size);
-  void freeData(uint64_t size);
-  void wipeData();
-
-  static void copyData(void *destination, const void *source, uint64_t size, const DevicePair &device_pair);
+  Device *getDevice() const;
+  ScalarType getScalarType() const;
+  OwnerType getOwnerType() const;
 };
 
-inline Arena GLOBAL_CPU_ARENA = Arena(1_GiB, MemoryType::PINNED, Device(DeviceType::CPU));
-inline Arena GLOBAL_GPU_ARENA = Arena(1_GiB, MemoryType::DEVICE, Device(DeviceType::GPU));
+template <ScalarType S> Element element_cast(const Element &element, Device *device = &AMD5625U);
 
 class Storage {
 private:
   void *data_ = nullptr;
   uint64_t size_ = 0;
   ScalarType scalar_type_ = ScalarType::UNKNOWN_SCALAR;
-  Arena *arena_ = nullptr;
+  Device *device_ = nullptr;
 
 public:
   Storage() = default;
-  Storage(uint64_t size, ScalarType scalar_type, Arena *arena);
-  Storage(std::initializer_list<Element> data, Arena *arena = &GLOBAL_CPU_ARENA);
+  Storage(uint64_t size, ScalarType scalar_type, Device *device = &AMD5625U);
 
   Storage(const Storage &other);
   Storage(Storage &&other) noexcept;
@@ -67,14 +78,19 @@ public:
   Storage &operator=(const Storage &other);
   Storage &operator=(Storage &&other) noexcept;
 
-  template <typename T> T *getData() { return (T *)data_; };
-  template <typename T> const T *getData() const { return (T *)data_; };
+  Element operator[](uint64_t index);
+  const Element operator[](uint64_t index) const;
+
+  template <typename T> T *getData() { return static_cast<T *>(data_); };
+  template <typename T> const T *getData() const { return static_cast<T *>(data_); };
 
   void *getData();
+  Device *getDevice();
+
   const void *getData() const;
   uint64_t getSize() const;
   ScalarType getScalarType() const;
-  Arena *getArena() const;
+  const Device *getDevice() const;
 
   void fillData(const Element &value);
   void fillIncreasedData(const Element &start, const Element &step);

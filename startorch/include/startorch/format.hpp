@@ -3,7 +3,6 @@
 #include "startorch/common.hpp"
 
 #include <cstdint>
-#include <variant>
 
 namespace darkside {
 template <typename T> struct CPPTypeToScalarType;
@@ -26,8 +25,6 @@ CPP_TYPE_TO_SCALAR_TYPE(uint32_t, startorch::ScalarType::UNSIGNED_INT_32);
 CPP_TYPE_TO_SCALAR_TYPE(uint64_t, startorch::ScalarType::UNSIGNED_INT_64);
 
 #undef CPP_TYPE_TO_SCALAR_TYPE
-
-uint64_t getScalarTypeSize(startorch::ScalarType scalar_type);
 
 template <typename F> decltype(auto) ScalarTypeToCPPType(startorch::ScalarType scalar_type, F &&f) {
   switch (scalar_type) {
@@ -66,44 +63,6 @@ template <typename F> decltype(auto) ScalarTypeToCPPType(startorch::ScalarType s
     break;
   }
 }
+
+uint64_t getScalarTypeSize(startorch::ScalarType scalar_type);
 } // namespace darkside
-
-namespace startorch {
-using ElementVariant = std::variant<int8_t, int16_t, int32_t, int64_t, float, double, uint8_t, uint16_t, uint32_t, uint64_t>;
-
-class Element {
-private:
-  ElementVariant value_ = 0;
-  void *data_ = nullptr;
-  ScalarType scalar_type_ = ScalarType::UNKNOWN_SCALAR;
-
-public:
-  Element() = default;
-
-  Element(int8_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_8) { data_ = &std::get<int8_t>(value_); }
-  Element(int16_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_16) { data_ = &std::get<int16_t>(value_); }
-  Element(int32_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_32) { data_ = &std::get<int32_t>(value_); }
-  Element(int64_t value) : value_(value), scalar_type_(startorch::ScalarType::INT_64) { data_ = &std::get<int64_t>(value_); }
-  Element(float value) : value_(value), scalar_type_(startorch::ScalarType::FLOAT_32) { data_ = &std::get<float>(value_); }
-  Element(double value) : value_(value), scalar_type_(startorch::ScalarType::FLOAT_64) { data_ = &std::get<double>(value_); }
-  Element(uint8_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_8) { data_ = &std::get<uint8_t>(value_); }
-  Element(uint16_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_16) { data_ = &std::get<uint16_t>(value_); }
-  Element(uint32_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_32) { data_ = &std::get<uint32_t>(value_); }
-  Element(uint64_t value) : value_(value), scalar_type_(startorch::ScalarType::UNSIGNED_INT_64) { data_ = &std::get<uint64_t>(value_); }
-
-  Element(const Element &other) = default;
-  Element(Element &&other) noexcept = default;
-
-  ~Element() = default;
-
-  Element &operator=(const Element &other) = default;
-  Element &operator=(Element &&other) noexcept = default;
-
-  template <typename T> T *getData() { return (T *)data_; }
-  template <typename T> const T *getData() const { return (T *)data_; }
-
-  const void *getData() { return data_; }
-  void *getData() const { return data_; }
-  ScalarType getScalarType() const { return scalar_type_; }
-};
-} // namespace startorch

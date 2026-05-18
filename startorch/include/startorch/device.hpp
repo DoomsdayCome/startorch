@@ -5,34 +5,49 @@
 namespace startorch {
 class Device {
 private:
+  void *data_ = nullptr;
+  uint64_t bytes_ = 0;
+  uint64_t offset_ = 0;
+  MemoryType memory_type_ = MemoryType::UNKNOWN_MEMORY;
   DeviceType device_type_ = DeviceType::UNKNOWN_DEVICE;
 
 public:
   Device() = default;
-  Device(DeviceType device_type);
+  Device(uint64_t size, MemoryType memory_type, DeviceType device_type);
 
-  Device(const Device &other) = default;
-  Device(Device &&other) noexcept = default;
+  Device(const Device &other) = delete;
+  Device &operator=(const Device &other) = delete;
 
-  ~Device() = default;
+  ~Device();
 
-  Device &operator=(const Device &other) = default;
-  Device &operator=(Device &&other) noexcept = default;
+  Device(Device &&other) noexcept = delete;
+  Device &operator=(Device &&other) noexcept = delete;
 
-  bool operator==(const Device &other) const;
-  bool operator!=(const Device &other) const;
-
+  void *getData();
+  const void *getData() const;
+  uint64_t getBytes() const;
+  uint64_t getOffset() const;
+  MemoryType getMemoryType() const;
   DeviceType getDeviceType() const;
+
+  void setSize(uint64_t bytes);
+
+  void *makeData(uint64_t bytes);
+  void freeData(uint64_t bytes);
+  void wipeData();
 };
+
+inline Device AMD5625U = Device(1_GiB, MemoryType::PINNED, DeviceType::CPU);
+inline Device NVD3050M = Device(1_GiB, MemoryType::DEVICE, DeviceType::GPU);
 
 class DevicePair {
 private:
-  Device first_device_ = Device();
-  Device second_device_ = Device();
+  Device *first_device_ = nullptr;
+  Device *second_device_ = nullptr;
 
 public:
   DevicePair() = default;
-  DevicePair(const Device &first_device, const Device &second_device);
+  DevicePair(Device *first_device, Device *second_device);
 
   DevicePair(const DevicePair &other) = default;
   DevicePair(DevicePair &&other) noexcept = default;
@@ -42,10 +57,11 @@ public:
   DevicePair &operator=(const DevicePair &other) = default;
   DevicePair &operator=(DevicePair &&other) noexcept = default;
 
-  bool operator==(const DevicePair &other) const;
-  bool operator!=(const DevicePair &other) const;
+  Device *getFirstDevice();
+  Device *getSecondDevice();
+  const Device *getFirstDevice() const;
+  const Device *getSecondDevice() const;
 
-  const Device &getFirstDevice() const;
-  const Device &getSecondDevice() const;
+  void copyData(void *destination, const void *source, uint64_t size);
 };
 } // namespace startorch

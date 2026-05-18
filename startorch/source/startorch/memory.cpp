@@ -7,22 +7,12 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <cstring>
-#include <new>
-
-#include <cuda_runtime.h>
 
 namespace darkside {
 uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
   switch (scalar_type) {
   case startorch::ScalarType::UNKNOWN_SCALAR:
     return 0;
-
-    // case startorch::ScalarType::FLOAT_8:
-    //   return 1;
-    //
-    // case startorch::ScalarType::FLOAT_16:
-    //   return 2;
 
   case startorch::ScalarType::FLOAT_32:
     return sizeof(float);
@@ -61,251 +51,233 @@ uint64_t getScalarTypeSize(startorch::ScalarType scalar_type) {
 } // namespace darkside
 
 namespace startorch {
-Arena::Arena(uint64_t size, MemoryType memory_type, const Device &device) {
-  if (size == 0 || memory_type == MemoryType::UNKNOWN_MEMORY || device.getDeviceType() == DeviceType::UNKNOWN_DEVICE)
-    return;
+#define INSTANTIATE(macro)                                                                                                                                     \
+  macro(float, ScalarType::FLOAT_32) macro(double, ScalarType::FLOAT_64) macro(int8_t, ScalarType::INT_8) macro(int16_t, ScalarType::INT_16)                   \
+      macro(int32_t, ScalarType::INT_32) macro(int64_t, ScalarType::INT_64) macro(uint8_t, ScalarType::UNSIGNED_INT_8)                                         \
+          macro(uint16_t, ScalarType::UNSIGNED_INT_16) macro(uint32_t, ScalarType::UNSIGNED_INT_32) macro(uint64_t, ScalarType::UNSIGNED_INT_64)
 
-  size_ = size;
-  memory_type_ = memory_type;
-  device_ = device;
+#define INSTANTIATE_REFERENCE_ELEMENT(T, S)                                                                                                                    \
+  Element::Element(T *data, Device *device) : data_(data), device_(device), scalar_type_(S), owner_type_(OwnerType::REFERENCE) {}
+INSTANTIATE(INSTANTIATE_REFERENCE_ELEMENT)
+#undef INSTANTIATE_REFERENCE_ELEMENT
 
-  if (device_.getDeviceType() == DeviceType::CPU) {
-    if (memory_type_ == MemoryType::DEVICE || memory_type_ == MemoryType::UNIFIED)
-      memory_type_ = MemoryType::HOST;
-  } else if (device_.getDeviceType() == DeviceType::GPU) {
-    if (memory_type_ == MemoryType::HOST || memory_type_ == MemoryType::PINNED)
-      memory_type_ = MemoryType::DEVICE;
+#define INSTANTIATE_OWNED_ELEMENT(T, S)                                                                                                                        \
+  Element::Element(T value, Device *device) {                                                                                                                  \
+    if (device == nullptr)                                                                                                                                     \
+      return;                                                                                                                                                  \
+                                                                                                                                                               \
+    data_ = device->makeData(sizeof(T));                                                                                                                       \
+                                                                                                                                                               \
+    if (data_ == nullptr)                                                                                                                                      \
+      return;                                                                                                                                                  \
+                                                                                                                                                               \
+    DevicePair(device_, &AMD5625U).copyData(data_, &value, sizeof(T));                                                                                         \
+                                                                                                                                                               \
+    device_ = device;                                                                                                                                          \
+    scalar_type_ = S;                                                                                                                                          \
+    owner_type_ = OwnerType::OWNED;                                                                                                                            \
   }
+INSTANTIATE(INSTANTIATE_OWNED_ELEMENT)
+#undef INSTANTIATE_OWNED_ELEMENT
+#undef INSTANTIATE
 
-  switch (memory_type_) {
-  case MemoryType::HOST:
-    data_ = new (std::nothrow) uint8_t[size_];
+Element::Element(const Element &other) {
+  switch (other.owner_type_) {
+  case OwnerType::OWNED: {
+    uint64_t bytes = darkside::getScalarTypeSize(other.scalar_type_);
+    data_ = other.device_->makeData(bytes);
+
+    if (data_ == nullptr)
+      break;
+
+    DevicePair(other.device_, other.device_).copyData(data_, other.data_, bytes);
+
+    device_ = other.device_;
+    scalar_type_ = other.scalar_type_;
+    owner_type_ = OwnerType::OWNED;
+
     break;
+  }
+  case OwnerType::REFERENCE:
+    data_ = other.data_;
+    device_ = other.device_;
+    scalar_type_ = other.scalar_type_;
+    owner_type_ = other.owner_type_;
 
-  case MemoryType::DEVICE:
-    if (cudaMalloc(&data_, size_) != cudaSuccess)
-      data_ = nullptr;
-    break;
-
-  case MemoryType::PINNED:
-    if (cudaMallocHost(&data_, size_) != cudaSuccess)
-      data_ = nullptr;
-    break;
-
-  case MemoryType::UNIFIED:
-    if (cudaMallocManaged(&data_, size_) != cudaSuccess)
-      data_ = nullptr;
     break;
 
   default:
     break;
   }
-
-  if (data_ == nullptr) {
-    size_ = 0;
-    offset_ = 0;
-    device_ = Device();
-  }
 }
 
-Arena::~Arena() {
-  if (size_ == 0)
-    return;
+Element::Element(Element &&other) noexcept : data_(other.data_), device_(other.device_), scalar_type_(other.scalar_type_), owner_type_(other.owner_type_) {
+  other.data_ = nullptr;
+  other.device_ = nullptr;
+  other.scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  other.owner_type_ = OwnerType::UNKNOWN_OWNER;
+}
 
-  switch (memory_type_) {
-  case MemoryType::HOST:
-    delete[] (uint8_t *)data_;
+Element::~Element() {
+  switch (owner_type_) {
+  case OwnerType::OWNED: {
+    uint64_t bytes = darkside::getScalarTypeSize(scalar_type_);
+    uint8_t *tail = static_cast<uint8_t *>(device_->getData()) + device_->getOffset();
+
+    if (static_cast<uint8_t *>(data_) + bytes == tail)
+      device_->freeData(bytes);
+
     break;
-
-  case MemoryType::PINNED:
-    cudaFreeHost(data_);
-    break;
-
-  case MemoryType::DEVICE:
-  case MemoryType::UNIFIED:
-    cudaFree(data_);
-    break;
-
+  }
   default:
     break;
   }
 
   data_ = nullptr;
-  size_ = 0;
+  device_ = nullptr;
+  scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  owner_type_ = OwnerType::UNKNOWN_OWNER;
 }
 
-void *Arena::getData() { return data_; }
-const void *Arena::getData() const { return data_; }
-uint64_t Arena::getSize() const { return size_; }
-uint64_t Arena::getOffset() const { return offset_; }
-MemoryType Arena::getMemoryType() const { return memory_type_; }
-const Device &Arena::getDevice() const { return device_; }
+Element &Element::operator=(const Element &other) {
+  if (this == &other)
+    return *this;
 
-void Arena::setSize(uint64_t size) {
-  if (size == size_)
-    return;
+  if (other.owner_type_ == OwnerType::OWNED && data_ != nullptr && scalar_type_ == other.scalar_type_) {
+    uint64_t bytes = darkside::getScalarTypeSize(scalar_type_);
 
-  void *new_data = nullptr;
-  if (size > 0) {
-    switch (memory_type_) {
-    case MemoryType::HOST:
-      new_data = new (std::nothrow) uint8_t[size];
-      break;
+    DevicePair(device_, other.device_).copyData(data_, other.data_, bytes);
 
-    case MemoryType::DEVICE:
-      if (cudaMalloc(&new_data, size) != cudaSuccess)
-        new_data = nullptr;
-      break;
+    return *this;
+  }
 
-    case MemoryType::PINNED:
-      if (cudaMallocHost(&new_data, size) != cudaSuccess)
-        new_data = nullptr;
-      break;
+  Element temp(other);
 
-    case MemoryType::UNIFIED:
-      if (cudaMallocManaged(&new_data, size) != cudaSuccess)
-        new_data = nullptr;
-      break;
+  std::swap(data_, temp.data_);
+  std::swap(device_, temp.device_);
+  std::swap(scalar_type_, temp.scalar_type_);
+  std::swap(owner_type_, temp.owner_type_);
 
-    default:
-      break;
+  return *this;
+}
+
+Element &Element::operator=(Element &&other) noexcept {
+  if (this == &other)
+    return *this;
+
+  if (owner_type_ == OwnerType::REFERENCE && other.data_ != nullptr && scalar_type_ == other.scalar_type_) {
+    uint64_t bytes = darkside::getScalarTypeSize(scalar_type_);
+
+    DevicePair(device_, other.device_).copyData(data_, other.data_, bytes);
+
+    if (other.owner_type_ == OwnerType::OWNED) {
+      bytes = darkside::getScalarTypeSize(other.scalar_type_);
+      uint8_t *tail = static_cast<uint8_t *>(other.device_->getData()) + other.device_->getOffset();
+
+      if (static_cast<uint8_t *>(other.data_) + bytes == tail)
+        other.device_->freeData(bytes);
     }
+
+    return *this;
   }
 
-  if (data_ && new_data) {
-    uint64_t copy_size = (size < size_) ? size : size_;
-    copyData(new_data, data_, copy_size, DevicePair(device_, device_));
+  if (owner_type_ == OwnerType::OWNED) {
+    uint64_t bytes = darkside::getScalarTypeSize(scalar_type_);
+    uint8_t *tail = static_cast<uint8_t *>(device_->getData()) + device_->getOffset();
+
+    if (static_cast<uint8_t *>(data_) + bytes == tail)
+      device_->freeData(bytes);
   }
 
-  if (data_) {
-    switch (memory_type_) {
-    case MemoryType::HOST:
-      delete[] (uint8_t *)data_;
-      break;
+  data_ = other.data_;
+  device_ = other.device_;
+  scalar_type_ = other.scalar_type_;
+  owner_type_ = other.owner_type_;
 
-    case MemoryType::PINNED:
-      cudaFreeHost(data_);
-      break;
+  other.data_ = nullptr;
+  other.device_ = nullptr;
+  other.scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  other.owner_type_ = OwnerType::UNKNOWN_OWNER;
 
-    case MemoryType::DEVICE:
-    case MemoryType::UNIFIED:
-      cudaFree(data_);
-      break;
-
-    default:
-      break;
-    }
-  }
-
-  data_ = new_data;
-  size_ = (data_ == nullptr && size > 0) ? 0 : size;
-
-  if (offset_ > size_)
-    offset_ = size_;
+  return *this;
 }
 
-void *Arena::makeData(uint64_t size) {
-  if (offset_ + size > size_)
-    return nullptr;
+void *Element::getData() { return data_; }
+const void *Element::getData() const { return data_; }
+Device *Element::getDevice() const { return device_; }
+ScalarType Element::getScalarType() const { return scalar_type_; }
+OwnerType Element::getOwnerType() const { return owner_type_; }
 
-  void *data = (uint8_t *)data_ + offset_;
+template <ScalarType S> Element element_cast(const Element &element, Device *device) {
+  if (element.getData() == nullptr)
+    return Element();
 
-  offset_ += size;
+  if (element.getScalarType() == S && element.getDevice() == device)
+    return Element(element);
 
-  return data;
+  Element result;
+
+  darkside::ScalarTypeToCPPType(element.getScalarType(), [&]<typename N>(darkside::CPPTypeToScalarType<N>) {
+    darkside::ScalarTypeToCPPType(S, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
+      result = Element(static_cast<T>(0), device);
+
+      if (result.getData<T>() == nullptr)
+        return;
+
+      darkside::castData<T, N>(result.getData<T>(), element.getData<N>(), 1, device, element.getDevice());
+    });
+  });
+
+  return result;
 }
 
-void Arena::freeData(uint64_t size) {
-  if (size <= offset_)
-    offset_ -= size;
-  else
-    offset_ = 0;
-}
+#define INSTANTIATE(macro)                                                                                                                                     \
+  macro(ScalarType::FLOAT_32) macro(ScalarType::FLOAT_64) macro(ScalarType::INT_8) macro(ScalarType::INT_16) macro(ScalarType::INT_32)                         \
+      macro(ScalarType::INT_64) macro(ScalarType::UNSIGNED_INT_8) macro(ScalarType::UNSIGNED_INT_16) macro(ScalarType::UNSIGNED_INT_32)                        \
+          macro(ScalarType::UNSIGNED_INT_64)
 
-void Arena::wipeData() { offset_ = 0; }
+#define INSTANTIATE_ELEMENT_CAST(S) template Element element_cast<S>(const Element &element, Device *device);
+INSTANTIATE(INSTANTIATE_ELEMENT_CAST)
+#undef INSTANTIATE_ELEMENT_CAST
+#undef INSTANTIATE
 
-void Arena::copyData(void *destination, const void *source, uint64_t size, const DevicePair &device_pair) {
-  if (!destination || !source || size == 0)
+Storage::Storage(uint64_t size, ScalarType scalar_type, Device *device) {
+  if (size == 0 || device == nullptr || scalar_type == ScalarType::UNKNOWN_SCALAR)
     return;
 
-  auto src = device_pair.getFirstDevice().getDeviceType();
-  auto dst = device_pair.getSecondDevice().getDeviceType();
+  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type);
+  data_ = device_->makeData(bytes);
 
-  cudaMemcpyKind kind = cudaMemcpyDefault;
-
-  if (src == DeviceType::CPU && dst == DeviceType::GPU)
-    kind = cudaMemcpyHostToDevice;
-  else if (src == DeviceType::GPU && dst == DeviceType::CPU)
-    kind = cudaMemcpyDeviceToHost;
-  else if (src == DeviceType::GPU && dst == DeviceType::GPU)
-    kind = cudaMemcpyDeviceToDevice;
-  else {
-    memcpy(destination, source, size);
-    return;
-  }
-
-  cudaMemcpy(destination, source, size, kind);
-}
-
-Storage::Storage(uint64_t size, ScalarType scalar_type, Arena *arena) {
-  if (size == 0 || arena == nullptr || scalar_type == ScalarType::UNKNOWN_SCALAR)
+  if (data_ == nullptr)
     return;
 
   size_ = size;
   scalar_type_ = scalar_type;
-  arena_ = arena;
-
-  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
-
-  data_ = arena_->makeData(bytes);
-
-  if (data_ == nullptr) {
-    size_ = 0;
-    arena_ = nullptr;
-    scalar_type_ = ScalarType::UNKNOWN_SCALAR;
-  }
+  device_ = device;
 }
 
-Storage::Storage(std::initializer_list<Element> data, Arena *arena) {
-  if (data.size() == 0 || arena == nullptr)
+Storage::Storage(const Storage &other) {
+  if (other.size_ == 0)
     return;
 
-  size_ = data.size();
-  arena_ = arena;
+  uint64_t bytes = size_ * darkside::getScalarTypeSize(other.scalar_type_);
+  data_ = other.device_->makeData(bytes);
 
-  for (auto e : data)
-    scalar_type_ = std::max(scalar_type_, e.getScalarType());
+  if (data_ == nullptr)
+    return;
 
-  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
+  DevicePair(other.device_, other.device_).copyData(data_, other.data_, bytes);
 
-  data_ = arena_->makeData(bytes);
-
-  if (data_ == nullptr) {
-    size_ = 0;
-    arena_ = nullptr;
-    scalar_type_ = ScalarType::UNKNOWN_SCALAR;
-  }
+  size_ = other.size_;
+  scalar_type_ = other.scalar_type_;
+  device_ = other.device_;
 }
 
-Storage::Storage(const Storage &other) : size_(other.size_), scalar_type_(other.scalar_type_), arena_(other.arena_) {
-  if (size_ == 0)
-    return;
-
-  uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
-
-  data_ = arena_->makeData(bytes);
-
-  if (data_ == nullptr) {
-    size_ = 0;
-    return;
-  }
-
-  Arena::copyData(data_, other.data_, bytes, DevicePair(arena_->getDevice(), arena_->getDevice()));
-}
-
-Storage::Storage(Storage &&other) noexcept : data_(other.data_), size_(other.size_), scalar_type_(other.scalar_type_), arena_(other.arena_) {
+Storage::Storage(Storage &&other) noexcept : data_(other.data_), size_(other.size_), scalar_type_(other.scalar_type_), device_(other.device_) {
   other.data_ = nullptr;
   other.size_ = 0;
+  other.scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  other.device_ = nullptr;
 }
 
 Storage::~Storage() {
@@ -313,39 +285,65 @@ Storage::~Storage() {
     return;
 
   uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
+  uint8_t *tail = static_cast<uint8_t *>(device_->getData()) + device_->getOffset();
 
-  uint8_t *tail = (uint8_t *)arena_->getData() + arena_->getOffset();
-
-  if ((uint8_t *)data_ + bytes == tail)
-    arena_->freeData(bytes);
+  if (static_cast<uint8_t *>(data_) + bytes == tail)
+    device_->freeData(bytes);
 
   data_ = nullptr;
   size_ = 0;
+  scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  device_ = nullptr;
 }
 
 Storage &Storage::operator=(const Storage &other) {
   if (this == &other)
     return *this;
 
+  if (other.size_ == 0) {
+    if (size_ > 0) {
+      uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
+      uint8_t *tail = static_cast<uint8_t *>(device_->getData()) + device_->getOffset();
+
+      if (static_cast<uint8_t *>(data_) + bytes == tail)
+        device_->freeData(bytes);
+    }
+
+    data_ = nullptr;
+    size_ = 0;
+    scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+    device_ = nullptr;
+
+    return *this;
+  }
+
   uint64_t bytes = other.size_ * darkside::getScalarTypeSize(other.scalar_type_);
 
-  void *data = nullptr;
+  if (device_ == other.device_ && size_ == other.size_ && scalar_type_ == other.scalar_type_) {
+    DevicePair(device_, other.device_).copyData(data_, other.data_, bytes);
 
-  if (other.arena_ && bytes > 0)
-    data = other.arena_->makeData(bytes);
+    return *this;
+  }
 
-  if (bytes > 0 && data == nullptr)
+  void *data = other.device_->makeData(bytes);
+
+  if (data == nullptr)
     return *this;
 
-  this->~Storage();
+  DevicePair(other.device_, other.device_).copyData(data, other.data_, bytes);
 
-  arena_ = other.arena_;
+  if (size_ > 0) {
+    bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
+    uint8_t *tail = static_cast<uint8_t *>(device_->getData()) + device_->getOffset();
+
+    if (static_cast<uint8_t *>(data_) + bytes == tail)
+      device_->freeData(bytes);
+  }
+
+  device_ = other.device_;
   size_ = other.size_;
   scalar_type_ = other.scalar_type_;
   data_ = data;
-
-  if (data_)
-    Arena::copyData(data_, other.data_, bytes, DevicePair(other.arena_->getDevice(), arena_->getDevice()));
 
   return *this;
 }
@@ -354,48 +352,122 @@ Storage &Storage::operator=(Storage &&other) noexcept {
   if (this == &other)
     return *this;
 
-  this->~Storage();
+  if (size_ > 0) {
+    uint64_t bytes = size_ * darkside::getScalarTypeSize(scalar_type_);
+    uint8_t *tail = static_cast<uint8_t *>(device_->getData()) + device_->getOffset();
+
+    if (static_cast<uint8_t *>(data_) + bytes == tail)
+      device_->freeData(bytes);
+  }
 
   data_ = other.data_;
   size_ = other.size_;
   scalar_type_ = other.scalar_type_;
-  arena_ = other.arena_;
+  device_ = other.device_;
 
   other.data_ = nullptr;
   other.size_ = 0;
+  other.scalar_type_ = ScalarType::UNKNOWN_SCALAR;
+  other.device_ = nullptr;
 
   return *this;
 }
 
+Element Storage::operator[](uint64_t index) {
+  if (index >= size_)
+    return Element();
+
+  Element element;
+
+  darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
+    uint8_t *pointer = static_cast<uint8_t *>(data_) + index * sizeof(T);
+    element = Element(static_cast<T *>(static_cast<void *>(pointer)), device_);
+  });
+
+  return element;
+}
+
+const Element Storage::operator[](uint64_t index) const {
+  if (index >= size_)
+    return Element();
+
+  Element element;
+
+  darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
+    uint8_t *pointer = static_cast<uint8_t *>(data_) + index * sizeof(T);
+    element = Element(static_cast<T *>(static_cast<void *>(pointer)), device_);
+  });
+
+  return element;
+}
+
 void *Storage::getData() { return data_; }
+Device *Storage::getDevice() { return device_; }
+
 const void *Storage::getData() const { return data_; }
 uint64_t Storage::getSize() const { return size_; }
 ScalarType Storage::getScalarType() const { return scalar_type_; }
-Arena *Storage::getArena() const { return arena_; }
+const Device *Storage::getDevice() const { return device_; }
 
 void Storage::fillData(const Element &value) {
-  if (size_ == 0)
-    return;
-
-  darkside::ScalarTypeToCPPType(scalar_type_,
-                                [&]<typename T>(darkside::CPPTypeToScalarType<T>) { darkside::fillData<T>((T *)data_, size_, *value.getData<T>(), arena_); });
-}
-
-void Storage::fillIncreasedData(const Element &start, const Element &step) {
-  if (size_ == 0)
+  if (size_ == 0 || data_ == nullptr)
     return;
 
   darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
-    darkside::fillIncreasedData<T>((T *)data_, size_, *start.getData<T>(), *step.getData<T>(), arena_);
+    T host_value;
+
+    if (value.getDevice()->getDeviceType() == DeviceType::CPU)
+      host_value = *value.getData<T>();
+    else
+      DevicePair(&AMD5625U, value.getDevice()).copyData(&host_value, value.getData(), sizeof(T));
+
+    darkside::fillData<T>(static_cast<T *>(data_), size_, host_value, device_);
+  });
+}
+
+void Storage::fillIncreasedData(const Element &start, const Element &step) {
+  if (size_ == 0 || data_ == nullptr)
+    return;
+
+  darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
+    T host_start;
+
+    if (start.getDevice()->getDeviceType() == DeviceType::CPU)
+      host_start = *start.getData<T>();
+    else
+      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_start, start.getData(), sizeof(T));
+
+    T host_step;
+
+    if (step.getDevice()->getDeviceType() == DeviceType::CPU)
+      host_step = *step.getData<T>();
+    else
+      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_step, step.getData(), sizeof(T));
+
+    darkside::fillIncreasedData<T>(static_cast<T *>(data_), size_, host_start, host_step, device_);
   });
 }
 
 void Storage::fillDecreasedData(const Element &start, const Element &step) {
-  if (size_ == 0)
+  if (size_ == 0 || data_ == nullptr)
     return;
 
   darkside::ScalarTypeToCPPType(scalar_type_, [&]<typename T>(darkside::CPPTypeToScalarType<T>) {
-    darkside::fillDecreasedData<T>((T *)data_, size_, *start.getData<T>(), *step.getData<T>(), arena_);
+    T host_start;
+
+    if (start.getDevice()->getDeviceType() == DeviceType::CPU)
+      host_start = *start.getData<T>();
+    else
+      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_start, start.getData(), sizeof(T));
+
+    T host_step;
+
+    if (step.getDevice()->getDeviceType() == DeviceType::CPU)
+      host_step = *step.getData<T>();
+    else
+      DevicePair(&AMD5625U, start.getDevice()).copyData(&host_step, step.getData(), sizeof(T));
+
+    darkside::fillDecreasedData<T>(static_cast<T *>(data_), size_, host_start, host_step, device_);
   });
 }
 } // namespace startorch
