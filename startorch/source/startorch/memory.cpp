@@ -71,7 +71,7 @@ INSTANTIATE(INSTANTIATE_REFERENCE_ELEMENT)
     if (data_ == nullptr)                                                                                                                                      \
       return;                                                                                                                                                  \
                                                                                                                                                                \
-    DevicePair(device, &AMD5625U).copyData(data_, &value, sizeof(T));                                                                                         \
+    DevicePair(device, &AMD5625U).copyData(data_, &value, sizeof(T));                                                                                          \
                                                                                                                                                                \
     device_ = device;                                                                                                                                          \
     scalar_type_ = S;                                                                                                                                          \
@@ -246,7 +246,7 @@ Storage::Storage(uint64_t size, ScalarType scalar_type, Device *device) {
     return;
 
   uint64_t bytes = size * darkside::getScalarTypeSize(scalar_type);
-  data_ = device_->makeData(bytes);
+  data_ = device->makeData(bytes);
 
   if (data_ == nullptr)
     return;

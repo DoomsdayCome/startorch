@@ -10,6 +10,7 @@ find_package(GTest REQUIRED)
 add_executable(test
   test/device.cpp 
   test/memory.cpp 
+  test/layout.cpp 
 )
 
 target_include_directories(test PRIVATE 

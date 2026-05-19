@@ -231,6 +231,11 @@ Layout::Layout(const Storage &shape, OrderType order_type, const Storage &stride
     offsets_ = offsets;
 }
 
+const Storage &Layout::getShape() const { return shape_; }
+const Storage &Layout::getOrder() const { return order_; }
+const Storage &Layout::getStrides() const { return strides_; }
+const Storage &Layout::getOffsets() const { return offsets_; }
+
 uint64_t Layout::getIndex(const Storage &indices) const {
   if (strides_.getSize() == 0 || strides_.getSize() != indices.getSize())
     return 0;
